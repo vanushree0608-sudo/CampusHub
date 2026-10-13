@@ -1,0 +1,227 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find Project Partners - CampusHub</title>
+    <link rel="stylesheet" href="css/style.css">
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: #080f1e;
+            color: #f5f7ff;
+            font-family: Arial, sans-serif;
+        }
+
+        .partner-page {
+            max-width: 1150px;
+            margin: auto;
+            padding: 35px 24px;
+        }
+
+        .back-link {
+            color: #67e8f9;
+            text-decoration: none;
+        }
+
+        .intro { margin: 30px 0; }
+
+        .intro h1 { font-size: 32px; }
+
+        .intro p, .partner-card p { color: #9eafc9; line-height: 1.7; }
+
+        .filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 24px 0;
+        }
+
+        .filters input, .filters select {
+            flex: 1;
+            min-width: 200px;
+            padding: 13px;
+            border: 1px solid #293c59;
+            border-radius: 10px;
+            background: #111e32;
+            color: white;
+        }
+
+        .partner-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+        }
+
+        .partner-card {
+            padding: 22px;
+            border: 1px solid #243650;
+            border-radius: 16px;
+            background: linear-gradient(145deg, #111f33, #0d1728);
+        }
+
+        .avatar {
+            display: grid;
+            place-items: center;
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: #172b45;
+            color: #67e8f9;
+            font-size: 22px;
+        }
+
+        .skills { display: flex; flex-wrap: wrap; gap: 7px; }
+
+        .skill {
+            padding: 6px 10px;
+            border-radius: 20px;
+            background: #193047;
+            color: #67e8f9;
+            font-size: 12px;
+        }
+
+        .empty-state {
+            padding: 30px;
+            text-align: center;
+            color: #9eafc9;
+            border: 1px dashed #344762;
+            border-radius: 14px;
+        }
+
+        @media (max-width: 600px) {
+            .partner-page { padding: 24px 16px; }
+            .intro h1 { font-size: 27px; }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="partner-page">
+        <a class="back-link" href="dashboard.html">← Back to Dashboard</a>
+
+        <section class="intro">
+            <h1>🤝 Find Your Project Partner</h1>
+            <p>Connect with students who have the skills you need to build something amazing.</p>
+        </section>
+
+        <section class="filters">
+            <input id="partnerSearch" type="search"
+                   placeholder="Search students or skills..."
+                   aria-label="Search students or skills">
+
+            <select id="skillFilter" aria-label="Filter by skill">
+                <option value="">All skills</option>
+                <option value="html">HTML</option>
+                <option value="css">CSS</option>
+                <option value="javascript">JavaScript</option>
+                <option value="python">Python</option>
+                <option value="java">Java</option>
+                <option value="full stack development">Full Stack Development</option>
+            </select>
+        </section>
+
+        <div id="partnerResults" class="partner-grid">
+            <div class="empty-state">Loading students...</div>
+        </div>
+    </main>
+
+    <script>
+        const results = document.getElementById("partnerResults");
+        const search = document.getElementById("partnerSearch");
+        const skillFilter = document.getElementById("skillFilter");
+
+        let students = [];
+
+        function safeText(value) {
+            return String(value ?? "").replace(/[&<>"']/g, char => ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;"
+            })[char]);
+        }
+
+        function renderStudents() {
+            const term = search.value.trim().toLowerCase();
+            const skill = skillFilter.value.toLowerCase();
+
+            const filtered = students.filter(student => {
+                const skills = Array.isArray(student.skills)
+                    ? student.skills
+                    : String(student.skills || "").split(",");
+
+                const searchable = [
+                    student.username,
+                    student.bio,
+                    student.college,
+                    ...skills
+                ].join(" ").toLowerCase();
+
+                return searchable.includes(term) &&
+                    (!skill || skills.some(s => String(s).trim().toLowerCase().includes(skill)));
+            });
+
+            if (!filtered.length) {
+                results.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No matching students found</h3>
+                        <p>Try another skill or search term.</p>
+                    </div>`;
+                return;
+            }
+
+            results.innerHTML = filtered.map(student => {
+                const skills = Array.isArray(student.skills)
+                    ? student.skills
+                    : String(student.skills || "").split(",").filter(Boolean);
+
+                return `
+                    <article class="partner-card">
+                        <div class="avatar">👤</div>
+                        <h2>${safeText(student.username || "Student")}</h2>
+                        <p>${safeText(student.bio || "Ready to learn and collaborate.")}</p>
+                        <p><strong>College:</strong> ${safeText(student.college || "Not specified")}</p>
+                        <p><strong>Skills</strong></p>
+                        <div class="skills">
+                            ${skills.length
+                                ? skills.map(s => `<span class="skill">${safeText(String(s).trim())}</span>`).join("")
+                                : '<span class="skill">Skills not added</span>'}
+                        </div>
+                    </article>`;
+            }).join("");
+        }
+
+        async function loadStudents() {
+            try {
+                const response = await fetch("/api/auth/students", {
+                    credentials: "same-origin"
+                });
+
+                if (!response.ok) {
+                    throw new Error("Student list unavailable");
+                }
+
+                const data = await response.json();
+                students = Array.isArray(data) ? data : (data.students || []);
+                renderStudents();
+            } catch (error) {
+                results.innerHTML = `
+                    <div class="empty-state">
+                        <h3>Couldn't load students yet</h3>
+                        <p>The student-list API needs to be connected to this page.</p>
+                    </div>`;
+            }
+        }
+
+        search.addEventListener("input", renderStudents);
+        skillFilter.addEventListener("change", renderStudents);
+        loadStudents();
+    </script>
+</body>
+</html>

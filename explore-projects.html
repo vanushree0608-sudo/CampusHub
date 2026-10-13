@@ -1,0 +1,586 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explore Projects - CampusHub</title>
+
+    <link rel="stylesheet" href="css/style.css">
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #080f1e;
+            color: #f5f7ff;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .explore-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .explore-sidebar {
+            width: 265px;
+            flex-shrink: 0;
+            padding: 28px 18px;
+            background: #0e1a2b;
+            border-right: 1px solid #223149;
+        }
+
+        .brand {
+            margin: 10px 10px 48px;
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -1px;
+        }
+
+        .brand span:first-child {
+            color: #22d3ee;
+        }
+
+        .brand span:last-child {
+            color: #9b7bff;
+        }
+
+        .menu-label {
+            margin: 0 12px 18px;
+            color: #7790b4;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 13px;
+            padding: 14px 13px;
+            border-radius: 11px;
+            color: #b9c9e1;
+            text-decoration: none;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+
+        .sidebar-nav a:hover,
+        .sidebar-nav a.active {
+            color: #67e8f9;
+            background: #162b43;
+        }
+
+        .nav-icon {
+            width: 22px;
+            text-align: center;
+            font-size: 17px;
+        }
+
+        .sidebar-note {
+            margin-top: 34px;
+            padding: 20px 16px;
+            border: 1px solid #2a3d58;
+            border-radius: 16px;
+            background: #13243a;
+        }
+
+        .sidebar-note .cap {
+            font-size: 26px;
+        }
+
+        .sidebar-note h3 {
+            margin: 14px 0 8px;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .sidebar-note p {
+            margin-bottom: 0;
+            color: #8fa9ce;
+            font-size: 12px;
+        }
+
+        /* Main content */
+        .explore-main {
+            flex: 1;
+            min-width: 0;
+            padding: 28px 38px 50px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #223149;
+        }
+
+        .topbar-title {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .topbar-subtitle {
+            margin: 9px 0 0;
+            color: #91a9cc;
+            font-size: 13px;
+        }
+
+        .profile-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #e4ebfa;
+            text-decoration: none;
+            white-space: nowrap;
+            font-size: 14px;
+        }
+
+        .profile-avatar {
+            display: grid;
+            width: 40px;
+            height: 40px;
+            place-items: center;
+            border: 1px solid #334c70;
+            border-radius: 50%;
+            background: #172b45;
+            font-size: 18px;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 28px;
+            color: #22d3ee;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .back-link:hover {
+            color: #a78bfa;
+        }
+
+        /* Page heading and search */
+        .explore-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 28px;
+            margin: 32px 0 35px;
+        }
+
+        .heading-copy {
+            min-width: 0;
+        }
+
+        .heading-copy h1 {
+            margin: 0 0 12px;
+            font-size: clamp(27px, 3vw, 36px);
+            letter-spacing: -0.8px;
+        }
+
+        .heading-copy p {
+            margin: 0;
+            color: #9eafc9;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .search-box {
+            position: relative;
+            width: 330px;
+            flex-shrink: 0;
+        }
+
+        .search-box span {
+            position: absolute;
+            top: 50%;
+            left: 16px;
+            transform: translateY(-50%);
+            color: #8fa4c2;
+            pointer-events: none;
+        }
+
+        #projectSearch {
+            width: 100%;
+            padding: 15px 16px 15px 43px;
+            border: 1px solid #293c59;
+            border-radius: 13px;
+            outline: none;
+            background: #111e32;
+            color: #f5f7ff;
+            font-size: 14px;
+        }
+
+        #projectSearch::placeholder {
+            color: #7e91ad;
+        }
+
+        #projectSearch:focus {
+            border-color: #22d3ee;
+            box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.08);
+        }
+
+        /* Section heading */
+        .projects-section {
+            margin-top: 38px;
+        }
+
+        .section-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .section-heading h2 {
+            margin: 0;
+            font-size: 19px;
+        }
+
+        .section-label {
+            color: #8196b5;
+            font-size: 13px;
+        }
+
+        /* Project grid */
+        #exploreProjectsGrid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            align-items: stretch;
+            gap: 22px;
+        }
+
+        .project-card {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            padding: 24px;
+            border: 1px solid #243650;
+            border-radius: 18px;
+            background: linear-gradient(145deg, #111f33, #0d1728);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.13);
+            transition: border-color 0.2s, transform 0.2s;
+        }
+
+        .project-card:hover {
+            transform: translateY(-3px);
+            border-color: #42638a;
+        }
+
+        .project-card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .project-status {
+            display: inline-block;
+            padding: 7px 12px;
+            border: 1px solid rgba(52, 211, 153, 0.2);
+            border-radius: 20px;
+            background: rgba(52, 211, 153, 0.1);
+            color: #6ee7b7;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .project-card h2 {
+            margin: 0 0 12px;
+            color: #f4f7ff;
+            font-size: 21px;
+            line-height: 1.4;
+            overflow-wrap: anywhere;
+        }
+
+        .project-description {
+            margin: 0 0 20px;
+            color: #aab9d0;
+            font-size: 14px;
+            line-height: 1.8;
+            overflow-wrap: anywhere;
+        }
+
+        .project-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 14px;
+            margin: 0;
+            padding: 12px 0;
+            border-top: 1px solid #233249;
+            color: #d3dced;
+            font-size: 13px;
+        }
+
+        .project-meta strong {
+            color: #8fa4c2;
+            font-weight: 500;
+        }
+
+        .project-meta span {
+            text-align: right;
+            overflow-wrap: anywhere;
+        }
+
+        .project-skills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 18px 0 22px;
+        }
+
+        .skill-tag {
+            display: inline-block;
+            padding: 7px 11px;
+            border: 1px solid #2b435f;
+            border-radius: 20px;
+            background: #172b40;
+            color: #67e8f9;
+            font-size: 12px;
+        }
+
+        .request-button {
+            width: 100%;
+            margin-top: auto;
+            padding: 13px 16px;
+            border: 0;
+            border-radius: 10px;
+            background: linear-gradient(100deg, #16c8e8, #7c5cff);
+            color: white;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+
+        .request-button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            opacity: 0.9;
+        }
+
+        .request-button:disabled {
+            background: #23354d;
+            color: #a9bad3;
+            cursor: not-allowed;
+            opacity: 1;
+        }
+
+        #exploreMessage {
+            margin: 22px 0;
+            color: #9eafc9;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        /* Responsive design */
+        @media (max-width: 1050px) {
+            .explore-sidebar {
+                width: 220px;
+            }
+
+            .explore-main {
+                padding-right: 25px;
+                padding-left: 25px;
+            }
+
+            #exploreProjectsGrid {
+                grid-template-columns: 1fr;
+            }
+
+            .explore-heading {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .search-box {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 650px) {
+            .explore-layout {
+                flex-direction: column;
+            }
+
+            .explore-sidebar {
+                width: 100%;
+                padding: 18px;
+                border-right: none;
+                border-bottom: 1px solid #223149;
+            }
+
+            .brand {
+                margin: 5px 5px 20px;
+                font-size: 25px;
+            }
+
+            .menu-label,
+            .sidebar-note {
+                display: none;
+            }
+
+            .sidebar-nav {
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+
+            .sidebar-nav a {
+                padding: 10px;
+                font-size: 12px;
+            }
+
+            .nav-icon {
+                width: auto;
+            }
+
+            .explore-main {
+                padding: 20px 17px 35px;
+            }
+
+            .topbar {
+                align-items: flex-start;
+            }
+
+            .topbar-subtitle {
+                max-width: 190px;
+                line-height: 1.5;
+            }
+
+            .profile-link {
+                font-size: 12px;
+            }
+
+            .profile-avatar {
+                width: 34px;
+                height: 34px;
+            }
+
+            .project-card {
+                padding: 19px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="explore-layout">
+
+        <!-- Sidebar -->
+        <aside class="explore-sidebar">
+            <div class="brand">
+                <span>Campus</span><span>Hub</span>
+            </div>
+
+            <p class="menu-label">MENU</p>
+
+            <nav class="sidebar-nav">
+                <a href="dashboard.html">
+                    <span class="nav-icon">⌂</span> Home
+                </a>
+
+                <a href="explore-projects.html" class="active">
+                    <span class="nav-icon">▦</span> Projects
+                </a>
+
+                <a href="requests.html">
+                    <span class="nav-icon">⇄</span> Requests
+                </a>
+
+                <a href="chat.html">
+                    <span class="nav-icon">✉</span> Messages
+                </a>
+
+                <a href="notifications.html">
+                    <span class="nav-icon">♧</span> Notifications
+                </a>
+
+                <a href="profile.html">
+                    <span class="nav-icon">♙</span> My Profile
+                </a>
+
+                <a href="borrow.html">
+                    <span class="nav-icon">📦</span> Borrow &amp; Return
+                </a>
+            </nav>
+
+            <div class="sidebar-note">
+                <div class="cap">🎓</div>
+                <h3>Learn together.<br>Build together.</h3>
+                <p>Your campus community</p>
+            </div>
+        </aside>
+
+        <!-- Main content -->
+        <main class="explore-main">
+
+            <header class="topbar">
+                <div>
+                    <p class="topbar-title">STUDENT COMMUNITY</p>
+                    <p class="topbar-subtitle">Discover ideas. Find your team.</p>
+                </div>
+
+                <a class="profile-link" href="profile.html">
+                    <span class="profile-avatar">👤</span>
+                    My Profile
+                </a>
+            </header>
+
+            <a href="dashboard.html" class="back-link">
+                ← Back to Dashboard
+            </a>
+
+            <!-- Heading and search -->
+            <section class="explore-heading">
+                <div class="heading-copy">
+                    <h1>🚀 Explore Projects</h1>
+                    <p>Discover ideas, share your skills, and find your team.</p>
+                </div>
+
+                <div class="search-box">
+                    <span>⌕</span>
+                    <input
+                        type="search"
+                        id="projectSearch"
+                        placeholder="Search projects or skills..."
+                        aria-label="Search projects or skills"
+                    >
+                </div>
+            </section>
+
+            <!-- Project listing -->
+            <section class="projects-section">
+                <div class="section-heading">
+                    <h2>Discover projects</h2>
+                    <span class="section-label">Find your next idea</span>
+                </div>
+
+                <p id="exploreMessage" role="status" aria-live="polite">
+                    Loading projects...
+                </p>
+
+                <div id="exploreProjectsGrid"></div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="js/explore-projects.js"></script>
+</body>
+</html>

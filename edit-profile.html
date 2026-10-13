@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Edit Profile - CampusHub</title>
+
+    <link rel="stylesheet" href="css/style.css">
+
+</head>
+
+<body>
+
+    <div class="profile-page">
+
+        <!-- Navigation -->
+
+        <nav class="navbar">
+
+            <div class="logo">
+                CampusHub
+            </div>
+
+            <div class="nav-links">
+
+                <a href="dashboard.html">
+                    Home
+                </a>
+
+                <a href="profile.html">
+                    Profile
+                </a>
+
+            </div>
+
+        </nav>
+
+
+        <!-- Edit Profile -->
+
+        <main class="profile-container">
+
+            <section class="profile-section">
+
+                <h2>
+                    Edit Profile ✏️
+                </h2>
+
+
+                <form id="editProfileForm" class="auth-form">
+
+                    <!-- Full Name -->
+
+                    <input
+                        type="text"
+                        id="editFullName"
+                        placeholder="Full Name"
+                        required
+                    >
+
+
+                    <!-- College -->
+
+                    <input
+                        type="text"
+                        id="editCollege"
+                        placeholder="College Name"
+                        required
+                    >
+
+
+                    <!-- Bio -->
+
+                    <textarea
+                        id="editBio"
+                        placeholder="Write something about yourself..."
+                        rows="5"
+                    ></textarea>
+
+
+                    <!-- Skills -->
+
+                    <input
+                        type="text"
+                        id="editSkills"
+                        placeholder="Skills (Example: HTML, CSS, JavaScript)"
+                    >
+
+
+                    <!-- Account Type -->
+
+                    <select id="editAccountType">
+
+                        <option value="public">
+                            Public Account
+                        </option>
+
+                        <option value="private">
+                            Private Account
+                        </option>
+
+                    </select>
+
+
+                    <!-- Save Button -->
+
+                    <button
+                        type="submit"
+                        class="btn signup-btn"
+                    >
+                        Save Changes
+                    </button>
+
+                </form>
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <!-- JavaScript -->
+
+    <script src="js/edit-profile.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Create Project - CampusHub</title>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <div class="profile-page">
+
+        <nav class="navbar">
+
+            <div class="logo">
+                CampusHub
+            </div>
+
+            <div class="nav-links">
+                <a href="dashboard.html">Home</a>
+                <a href="profile.html">Profile</a>
+                <a href="projects.html">Projects</a>
+            </div>
+
+        </nav>
+
+
+        <main class="profile-container">
+
+            <section class="profile-section">
+
+                <h2>Create a Project 🚀</h2>
+
+                <form id="createProjectForm" class="auth-form">
+
+                    <input
+                        type="text"
+                        id="projectName"
+                        placeholder="Project Name"
+                        required
+                    >
+
+                    <textarea
+                        id="projectDescription"
+                        placeholder="Describe your project..."
+                        rows="5"
+                        required
+                    ></textarea>
+
+                    <input
+                        type="text"
+                        id="skillsRequired"
+                        placeholder="Skills Needed (Example: Python, HTML, JavaScript)"
+                    >
+
+                    <input
+                        type="number"
+                        id="membersNeeded"
+                        placeholder="Members Needed"
+                        min="1"
+                        required
+                    >
+
+                    <label for="deadline">
+                        Project Deadline
+                    </label>
+
+                    <input
+                        type="date"
+                        id="deadline"
+                    >
+
+                    <button
+                        type="submit"
+                        class="btn signup-btn"
+                    >
+                        Create Project
+                    </button>
+
+                </form>
+
+            </section>
+
+        </main>
+
+    </div>
+
+    <script src="js/create-project.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CampusHub | Messages</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f3f4fb;
+            color: #222;
+        }
+
+        header {
+            background: #4338ca;
+            color: white;
+            padding: 20px;
+        }
+
+        header a {
+            color: white;
+            text-decoration: none;
+        }
+
+        main {
+            max-width: 800px;
+            margin: 25px auto;
+            padding: 0 16px;
+        }
+
+        .project-card {
+            background: white;
+            padding: 18px;
+            margin-bottom: 14px;
+            border-radius: 12px;
+            box-shadow: 0 3px 12px #00000010;
+        }
+
+        .project-card button {
+            background: #4338ca;
+            color: white;
+            border: none;
+            border-radius: 7px;
+            padding: 10px 16px;
+            cursor: pointer;
+        }
+
+        #status {
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h2>CampusHub 💬 Messages</h2>
+        <a href="dashboard.html">← Back to Dashboard</a>
+    </header>
+
+    <main>
+        <h3>Your Project Chats</h3>
+        <p id="status">Loading your projects...</p>
+        <div id="projects"></div>
+    </main>
+
+    <script>
+        async function loadProjects() {
+            const status = document.getElementById("status");
+            const container = document.getElementById("projects");
+
+            try {
+                const response = await fetch("/api/projects/", {
+                    credentials: "include"
+                });
+
+                if (response.status === 401) {
+                    status.textContent = "Please log in first.";
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error("Could not load projects.");
+                }
+
+                const data = await response.json();
+                const projects = data.projects || [];
+
+                container.replaceChildren();
+
+                if (projects.length === 0) {
+                    status.textContent = "No projects found yet.";
+                    return;
+                }
+
+                status.textContent = "";
+
+                projects.forEach(project => {
+                    const card = document.createElement("div");
+                    card.className = "project-card";
+
+                    const title = document.createElement("h3");
+                    title.textContent = project.project_name;
+
+                    const button = document.createElement("button");
+                    button.textContent = "Open Team Chat";
+                    button.addEventListener("click", () => {
+                        window.location.href =
+                            `chat.html?projectId=${encodeURIComponent(project.id)}`;
+                    });
+
+                    card.append(title, button);
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                status.textContent =
+                    "Couldn't load projects. Please check your connection and try again.";
+                console.error(error);
+            }
+        }
+
+        loadProjects();
+    </script>
+</body>
+</html>

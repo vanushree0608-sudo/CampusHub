@@ -1,0 +1,686 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lend & Borrow - CampusHub</title>
+    <link rel="stylesheet" href="css/style.css">
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: #080f1e;
+            color: #f5f7ff;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .borrow-layout { display: flex; min-height: 100vh; }
+
+        .sidebar {
+            width: 245px;
+            flex-shrink: 0;
+            padding: 28px 18px;
+            background: #0e1a2b;
+            border-right: 1px solid #223149;
+        }
+
+        .brand {
+            margin: 10px 10px 42px;
+            font-size: 27px;
+            font-weight: 800;
+        }
+
+        .brand span:first-child { color: #22d3ee; }
+        .brand span:last-child { color: #9b7bff; }
+
+        .menu-label {
+            margin: 0 12px 16px;
+            color: #7790b4;
+            font-size: 12px;
+            letter-spacing: 1px;
+        }
+
+        .sidebar nav { display: flex; flex-direction: column; gap: 8px; }
+
+        .sidebar nav a {
+            padding: 13px;
+            border-radius: 10px;
+            color: #b9c9e1;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .sidebar nav a:hover,
+        .sidebar nav a.active {
+            background: #162b43;
+            color: #67e8f9;
+        }
+
+        .main {
+            flex: 1;
+            min-width: 0;
+            padding: 30px 36px 50px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 22px;
+            border-bottom: 1px solid #223149;
+        }
+
+        .topbar p { margin: 0; }
+        .topbar .subtitle { margin-top: 8px; color: #91a9cc; font-size: 13px; }
+
+        .profile-link {
+            color: #dce7f8;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .intro { margin: 35px 0 28px; }
+
+        .intro h1 {
+            margin: 0 0 12px;
+            font-size: clamp(27px, 3vw, 36px);
+        }
+
+        .intro p { color: #9eafc9; line-height: 1.7; }
+
+        .tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 25px 0;
+            padding: 6px;
+            width: fit-content;
+            border: 1px solid #253750;
+            border-radius: 13px;
+            background: #0e1a2b;
+        }
+
+        .tab {
+            padding: 12px 18px;
+            border: 0;
+            border-radius: 9px;
+            background: transparent;
+            color: #aab9d0;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .tab.active {
+            background: linear-gradient(100deg, #16c8e8, #7c5cff);
+            color: white;
+        }
+
+        .section-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 28px 0 20px;
+        }
+
+        .section-heading h2 { margin: 0; font-size: 21px; }
+
+        .search {
+            width: min(100%, 300px);
+            padding: 13px 15px;
+            border: 1px solid #293c59;
+            border-radius: 11px;
+            background: #111e32;
+            color: white;
+            outline: none;
+        }
+
+        .search:focus { border-color: #22d3ee; }
+
+        .item-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 20px;
+        }
+
+        .item-card {
+            padding: 22px;
+            border: 1px solid #243650;
+            border-radius: 17px;
+            background: linear-gradient(145deg, #111f33, #0d1728);
+        }
+
+        .item-icon {
+            display: grid;
+            width: 50px;
+            height: 50px;
+            place-items: center;
+            border-radius: 14px;
+            background: #172b45;
+            font-size: 25px;
+        }
+
+        .item-card h3 { margin: 17px 0 9px; font-size: 18px; }
+
+        .item-card p {
+            color: #9eafc9;
+            font-size: 14px;
+            line-height: 1.7;
+        }
+
+        .status {
+            display: inline-block;
+            margin-top: 5px;
+            padding: 6px 10px;
+            border-radius: 20px;
+            background: #15352f;
+            color: #6ee7b7;
+            font-size: 12px;
+        }
+
+        .primary-button {
+            width: 100%;
+            margin-top: 17px;
+            padding: 12px;
+            border: 0;
+            border-radius: 10px;
+            background: linear-gradient(100deg, #16c8e8, #7c5cff);
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .empty-state {
+            padding: 32px 20px;
+            border: 1px dashed #344762;
+            border-radius: 15px;
+            color: #9eafc9;
+            text-align: center;
+            line-height: 1.7;
+        }
+
+        [hidden] { display: none !important; }
+
+        @media (max-width: 1050px) {
+            .item-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .main { padding: 25px; }
+        }
+
+        @media (max-width: 700px) {
+            .borrow-layout { flex-direction: column; }
+            .sidebar { width: 100%; padding: 18px; }
+            .brand { margin: 5px 5px 20px; }
+            .menu-label { display: none; }
+            .sidebar nav { flex-direction: row; flex-wrap: wrap; }
+            .sidebar nav a { padding: 10px; font-size: 12px; }
+            .main { padding: 20px 16px 35px; }
+            .item-grid { grid-template-columns: 1fr; }
+            .tabs { width: 100%; }
+            .tab { flex: 1; padding: 12px 8px; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="borrow-layout">
+        <aside class="sidebar">
+            <div class="brand"><span>Campus</span><span>Hub</span></div>
+            <p class="menu-label">MENU</p>
+
+            <nav>
+                <a href="dashboard.html">⌂ &nbsp; Home</a>
+                <a href="explore-projects.html">▦ &nbsp; Projects</a>
+                <a href="requests.html">⇄ &nbsp; Requests</a>
+                <a href="chat.html">✉ &nbsp; Messages</a>
+                <a href="notifications.html">♧ &nbsp; Notifications</a>
+                <a href="profile.html">♙ &nbsp; My Profile</a>
+                <a href="borrow.html" class="active">📦 &nbsp; Borrow & Return</a>
+            </nav>
+        </aside>
+
+        <main class="main">
+            <header class="topbar">
+                <div>
+                    <p><strong>STUDENT COMMUNITY</strong></p>
+                    <p class="subtitle">Share resources. Help each other.</p>
+                </div>
+                <a href="profile.html" class="profile-link">👤 My Profile</a>
+            </header>
+
+            <section class="intro">
+                <h1>📦 Lend & Borrow</h1>
+                <p>Borrow useful items from fellow students and share what you have.</p>
+            </section>
+
+            <div class="tabs" role="tablist" aria-label="Borrowing sections">
+                <button class="tab active" id="browseTab" role="tab"
+                    aria-selected="true" aria-controls="browsePanel">
+                    🔎 Borrow Items
+                </button>
+                <button class="tab" id="myItemsTab" role="tab"
+                    aria-selected="false" aria-controls="myItemsPanel">
+                    🔄 My Borrowings
+                </button>
+                
+<button class="tab" id="incomingTab" role="tab"
+    aria-selected="false" aria-controls="incomingPanel">
+    📩 Incoming Requests
+</button>
+
+            </div>
+
+            <section id="browsePanel" role="tabpanel" aria-labelledby="browseTab">
+                <div class="section-heading">
+                    <h2>Available Items</h2>
+<button class="primary-button" id="showItemForm"
+    style="width:auto; margin-top:0;">
+    + Lend an Item
+</button>
+                    <input class="search" id="itemSearch" type="search"
+                        placeholder="Search items..." aria-label="Search items">
+                </div>
+
+<form id="itemForm" class="item-card" hidden
+    style="margin-bottom:20px; grid-column:1/-1;">
+
+    <h3>List an Item</h3>
+
+    <label for="itemName">Item Name</label>
+    <input class="search" id="itemName" name="item_name"
+        type="text" placeholder="e.g. Engineering Mathematics Book"
+        required>
+
+    <br><br>
+
+    <label for="itemCategory">Category</label>
+    <select class="search" id="itemCategory" name="category" required>
+        <option value="Books">Books</option>
+        <option value="Electronics">Electronics</option>
+        <option value="Lab Equipment">Lab Equipment</option>
+        <option value="Stationery">Stationery</option>
+        <option value="Other">Other</option>
+    </select>
+
+    <br><br>
+
+    <label for="itemDescription">Description</label>
+    <textarea class="search" id="itemDescription"
+        name="description" rows="3"
+        placeholder="Describe the item..."></textarea>
+
+    <button type="submit" class="primary-button">Submit Item</button>
+    <button type="button" class="tab" id="cancelItemForm">Cancel</button>
+
+    <p id="itemFormMessage" role="status"></p>
+</form>
+
+                <div id="availableItems" class="item-grid">
+                    <div class="empty-state">
+                        <h3>No items listed yet</h3>
+                        <p>Items shared by students will appear here.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="myItemsPanel" role="tabpanel"
+                aria-labelledby="myItemsTab" hidden>
+                <div class="section-heading">
+                    <h2>My Borrowings</h2>
+                </div>
+
+               
+<div id="myBorrowings" class="empty-state">
+    Loading your borrowings...
+</div>
+
+            </section>
+            
+<section id="incomingPanel" role="tabpanel"
+    aria-labelledby="incomingTab" hidden>
+
+    <div class="section-heading">
+        <h2>Incoming Borrow Requests</h2>
+    </div>
+
+    <div id="incomingRequests" class="item-grid">
+        <div class="empty-state">
+            Borrow requests from other students will appear here.
+        </div>
+    </div>
+
+</section>
+
+        </main>
+    </div>
+
+    <script>
+        const browseTab = document.getElementById("browseTab");
+        const myItemsTab = document.getElementById("myItemsTab");
+        const browsePanel = document.getElementById("browsePanel");
+        const myItemsPanel = document.getElementById("myItemsPanel");
+        const incomingTab = document.getElementById("incomingTab");
+const incomingPanel = document.getElementById("incomingPanel");
+
+       
+
+function showTab(tab) {
+    browsePanel.hidden = tab !== "browse";
+    myItemsPanel.hidden = tab !== "mine";
+    incomingPanel.hidden = tab !== "incoming";
+
+    browseTab.classList.toggle("active", tab === "browse");
+    myItemsTab.classList.toggle("active", tab === "mine");
+    incomingTab.classList.toggle("active", tab === "incoming");
+
+    browseTab.setAttribute("aria-selected", tab === "browse");
+    myItemsTab.setAttribute("aria-selected", tab === "mine");
+    incomingTab.setAttribute("aria-selected", tab === "incoming");
+
+    if (tab === "mine") {
+        loadMyBorrowings();
+    }
+
+    if (tab === "incoming") {
+        loadIncomingRequests();
+    }
+}
+
+browseTab.addEventListener("click", () => showTab("browse"));
+myItemsTab.addEventListener("click", () => showTab("mine"));
+incomingTab.addEventListener("click", () => showTab("incoming"));
+async function requestBorrow(itemId) {
+    if (!confirm("Do you want to request this item?")) {
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `/api/borrow/items/${itemId}/request`,
+            {
+                method: "POST",
+                credentials: "same-origin"
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            alert(result.message || "Could not send request.");
+            return;
+        }
+
+        alert(result.message || "Borrow request sent!");
+    } catch (error) {
+        alert("Could not connect to the server.");
+    }
+}
+
+async function loadBorrowItems() {
+    const availableItems = document.getElementById("availableItems");
+    const searchValue = document.getElementById("itemSearch").value
+        .trim().toLowerCase();
+
+    try {
+        const response = await fetch("/api/borrow/items");
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error("Could not load items");
+        }
+const currentUserId = result.currentUserId;
+
+        const items = (result.items || []).filter(item =>
+            `${item.item_name} ${item.description || ""} ${item.category || ""}`
+                .toLowerCase()
+                .includes(searchValue)
+        );
+
+        if (items.length === 0) {
+            availableItems.innerHTML = `
+                <div class="empty-state" style="grid-column:1/-1;">
+                    <h3>No items found</h3>
+                    <p>Try another search or list an item to share.</p>
+                </div>`;
+            return;
+        }
+
+        availableItems.innerHTML = items.map(item => `
+            <article class="item-card">
+                <div class="item-icon">📦</div>
+                <h3>${escapeBorrowText(item.item_name)}</h3>
+                <p>${escapeBorrowText(item.description || "No description provided.")}</p>
+                <p>Category: ${escapeBorrowText(item.category || "Other")}</p>
+<p>Listed by: ${escapeBorrowText(item.owner_name || "Student")}</p>
+${Number(item.user_id) === Number(currentUserId)
+    ? '<span class="status">Your item</span>'
+    : '<span class="status">Available to Borrow</span>'}
+${Number(item.user_id) !== Number(currentUserId) ? `
+    <button class="primary-button"
+        onclick="requestBorrow(${Number(item.id)})">
+        Request to Borrow
+    </button>
+` : ""}
+            </article>
+        `).join("");
+    } catch (error) {
+        availableItems.innerHTML = `
+            <div class="empty-state" style="grid-column:1/-1;">
+                Could not load items. Please try again.
+            </div>`;
+    }
+}
+
+function escapeBorrowText(value) {
+    return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[char]);
+}
+
+document.getElementById("itemSearch").addEventListener("input", loadBorrowItems);
+
+loadBorrowItems();
+
+const showItemForm = document.getElementById("showItemForm");
+const itemForm = document.getElementById("itemForm");
+const cancelItemForm = document.getElementById("cancelItemForm");
+const itemFormMessage = document.getElementById("itemFormMessage");
+
+showItemForm.addEventListener("click", () => {
+    itemForm.hidden = false;
+    itemFormMessage.textContent = "";
+});
+
+cancelItemForm.addEventListener("click", () => {
+    itemForm.hidden = true;
+    itemForm.reset();
+    itemFormMessage.textContent = "";
+});
+
+itemForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const data = {
+        item_name: document.getElementById("itemName").value.trim(),
+        category: document.getElementById("itemCategory").value,
+        description: document.getElementById("itemDescription").value.trim()
+    };
+
+    try {
+        const response = await fetch("/api/borrow/items", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            credentials: "same-origin",
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            itemFormMessage.textContent =
+                result.message || "Could not add item.";
+            return;
+        }
+
+        itemFormMessage.textContent = "Item added successfully!";
+        itemForm.reset();
+
+        await loadBorrowItems();
+    } catch (error) {
+        itemFormMessage.textContent =
+            "Could not connect to the server.";
+    }
+});
+
+async function loadMyBorrowings() {
+    const container = document.getElementById("myBorrowings");
+
+    container.innerHTML = "Loading your borrowings...";
+
+    try {
+        const response = await fetch("/api/borrow/my-borrowings", {
+            credentials: "same-origin"
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.message || "Could not load borrowings");
+        }
+
+        const borrowings = result.borrowings || [];
+
+        if (borrowings.length === 0) {
+            container.className = "empty-state";
+            container.textContent = "You haven't requested any items yet.";
+            return;
+        }
+
+        container.className = "items-grid";
+
+        container.innerHTML = borrowings.map(item => `
+            <article class="item-card">
+                <h3>${escapeBorrowText(item.item_name)}</h3>
+                <p>Owner: ${escapeBorrowText(item.owner_name)}</p>
+                <p>Status: <strong>${escapeBorrowText(item.request_status)}</strong></p>
+                <p>Requested: ${item.requested_at
+                    ? escapeBorrowText(new Date(item.requested_at).toLocaleDateString("en-IN"))
+                    : "Not available"}</p>
+                <p>Due date: ${item.due_date
+                    ? escapeBorrowText(new Date(item.due_date).toLocaleDateString("en-IN", {
+                        timeZone: "UTC"
+                    }))
+                    : "Not set"}</p>
+            </article>
+        `).join("");
+
+    } catch (error) {
+        container.className = "empty-state";
+        container.textContent = error.message || "Could not load your borrowings.";
+    }
+}
+
+async function loadIncomingRequests() {
+    const container = document.getElementById("incomingRequests");
+
+    container.innerHTML = "Loading incoming requests...";
+
+    try {
+        const response = await fetch("/api/borrow/owner-requests", {
+            credentials: "same-origin"
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.message || "Could not load requests");
+        }
+
+        const requests = result.requests || [];
+
+        if (requests.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state" style="grid-column:1/-1;">
+                    <h3>No incoming requests</h3>
+                    <p>Requests for your items will appear here.</p>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = requests.map(request => `
+            <article class="item-card">
+                <div class="item-icon">📩</div>
+                <h3>${escapeBorrowText(request.item_name)}</h3>
+                <p>Requested by: ${escapeBorrowText(request.borrower_name)}</p>
+                <p>Status: <strong>${escapeBorrowText(request.request_status)}</strong></p>
+
+                ${request.request_status === "pending" ? `
+                    <button class="primary-button"
+                        onclick="updateBorrowRequest(${Number(request.request_id)}, 'approved')">
+                        Approve
+                    </button>
+                    <button class="tab"
+                        style="width:100%; margin-top:8px;"
+                        onclick="updateBorrowRequest(${Number(request.request_id)}, 'rejected')">
+                        Reject
+                    </button>
+                ` : ""}
+            </article>
+        `).join("");
+
+    } catch (error) {
+        container.innerHTML = `
+            <div class="empty-state" style="grid-column:1/-1;">
+                ${escapeBorrowText(error.message || "Could not load requests.")}
+            </div>`;
+    }
+}
+
+async function updateBorrowRequest(requestId, status) {
+    const action = status === "approved" ? "approve" : "reject";
+
+    if (!confirm(`Are you sure you want to ${action} this request?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `/api/borrow/requests/${requestId}/status`,
+            {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                credentials: "same-origin",
+                body: JSON.stringify({ status })
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            alert(result.message || "Could not update the request.");
+            return;
+        }
+
+        alert(result.message || "Request updated successfully!");
+
+        await loadIncomingRequests();
+
+    } catch (error) {
+        alert("Could not connect to the server.");
+    }
+}
+
+    </script>
+</body>
+</html>
