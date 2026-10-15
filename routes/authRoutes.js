@@ -168,13 +168,24 @@ router.post("/login", (req, res) => {
                     message: "Invalid username/email or password."
                 });
             }
-   req.session.userId = user.id;
-   req.session.username = user.username;
-            res.status(200).json({
-                message: "Login successful!",
-                userId: user.id,
-                username: user.username
-            });
+   
+req.session.userId = user.id;
+req.session.username = user.username;
+
+req.session.save((sessionError) => {
+    if (sessionError) {
+        console.log("Session save error:", sessionError);
+        return res.status(500).json({
+            message: "Could not save login session."
+        });
+    }
+
+    res.status(200).json({
+        message: "Login successful!",
+        userId: user.id,
+        username: user.username
+    });
+});
         }
     );
 });
