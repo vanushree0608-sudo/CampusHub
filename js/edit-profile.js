@@ -4,7 +4,7 @@
 // Load Current Profile
 // ================================
 
-fetch("http://localhost:3000/api/auth/me", {
+fetch("https://campushub-production-69eb.up.railway.app/api/auth/me", {
     credentials: "include"
 })
 .then(response => response.json())
@@ -67,7 +67,7 @@ if (editProfileForm) {
             document.querySelector("#editAccountType").value;
 
 
-        fetch("http://localhost:3000/api/auth/profile", {
+        fetch("https://campushub-production-69eb.up.railway.app/api/auth/profile", {
 
             method: "PUT",
 
