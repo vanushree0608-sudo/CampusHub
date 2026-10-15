@@ -23,7 +23,7 @@ if (createProjectForm) {
             document.querySelector("#deadline").value;
 
 
-        fetch("http://localhost:3000/api/projects/create", {
+        fetch("https://campushub-production-69eb.up.railway.app/api/projects/create", {
 
             method: "POST",
 
