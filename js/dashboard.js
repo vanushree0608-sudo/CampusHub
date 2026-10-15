@@ -1,38 +1,30 @@
+
 // CampusHub Dashboard
 
 fetch("https://campushub-production-69eb.up.railway.app/api/auth/me", {
     credentials: "include"
 })
+.then(async response => {
+    const data = await response.json();
 
-.then(response => response.json())
+    console.log("Session check status:", response.status);
+    console.log("Session check response:", data);
 
-.then(data => {
-
-    if (data.user) {
-
-        console.log("Logged-in user:", data.user);
-
+    if (response.ok && data.user) {
         const welcomeTitle = document.querySelector("#welcomeTitle");
 
         if (welcomeTitle) {
             welcomeTitle.textContent =
                 `Welcome back, ${data.user.full_name} 👋`;
         }
-
     } else {
-
-        alert("Please login first.");
-        window.location.href = "login.html";
-
+        alert("Login session not recognized. Please check the browser console.");
     }
-
 })
-
 .catch(error => {
-
     console.error("Dashboard error:", error);
-
 });
+
 const profileLink = document.querySelector(".nav-links a:nth-child(2)");
 
 if (profileLink) {
