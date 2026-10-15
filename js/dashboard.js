@@ -1,6 +1,6 @@
 // CampusHub Dashboard
 
-fetch("http://localhost:3000/api/auth/me", {
+fetch("https://campushub-production-69eb.up.railway.app/api/auth/me", {
     credentials: "include"
 })
 
