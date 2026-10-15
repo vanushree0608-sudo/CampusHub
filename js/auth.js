@@ -141,7 +141,7 @@ if (loginForm) {
             return;
         }
 
-        fetch("/api/auth/login", {
+        fetch("https://campushub-production-69eb.up.railway.app/api/auth/login", {
             credentials: "include",
 
             method: "POST",
