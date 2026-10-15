@@ -66,7 +66,7 @@ if (signupForm) {
 
         // Send account details to backend
 
-        fetch("http://localhost:3000/api/auth/register", {
+        fetch("https://campushub-production-69eb.up.railway.app/api/auth/register", {
 
             method: "POST",
 
