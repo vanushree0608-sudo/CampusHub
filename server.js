@@ -11,8 +11,32 @@ const borrowRoutes = require("./routes/borrowRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const db = require("./database");
 
+
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Allow the CampusHub Netlify website to access the backend
+const allowedOrigin = "https://campushub26.netlify.app";
+
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", allowedOrigin);
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    );
+    res.header(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization"
+    );
+
+    if (req.method === "OPTIONS") {
+        return res.sendStatus(204);
+    }
+
+    next();
+});
+
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -25,7 +49,8 @@ const sessionMiddleware = session({
     cookie: {
         maxAge: 1000 * 60 * 60 * 24,
         httpOnly: true,
-        sameSite: "lax"
+        sameSite: "none",
+secure: true
     }
 });
 
@@ -46,7 +71,12 @@ app.get("/", (req, res) => {
 
 // HTTP + Socket.IO
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    cors: {
+        origin: "https://campushub26.netlify.app",
+        credentials: true
+    }
+});
 
 app.set("io", io);
 io.engine.use(sessionMiddleware);
