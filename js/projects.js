@@ -25,7 +25,7 @@ if (createProjectBtn) {
 // Load Projects
 // ===============================
 
-fetch("/api/projects/", {
+fetch("https://campushub-production-69eb.up.railway.app/api/projects/", {
     credentials: "include"
 })
 .then(response => response.json())
