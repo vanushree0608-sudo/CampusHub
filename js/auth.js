@@ -68,6 +68,8 @@ if (signupForm) {
 
         fetch("https://campushub-production-69eb.up.railway.app/api/auth/register", {
 
+            credentials: "include",
+
             method: "POST",
 
             headers: {
