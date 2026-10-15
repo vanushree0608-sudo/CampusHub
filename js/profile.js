@@ -9,7 +9,7 @@ if (editProfileBtn) {
     });
 }
 
-fetch("/api/auth/me", {
+fetch("https://campushub-production-69eb.up.railway.app/api/auth/me", {
     credentials: "include"
 })
 .then(async response => {
@@ -72,7 +72,7 @@ fetch("/api/auth/me", {
 });
 
 // Load project count
-fetch("/api/projects/", {
+fetch("https://campushub-production-69eb.up.railway.app/api/projects/", {
     credentials: "include"
 })
 .then(response => response.json())
