@@ -53,7 +53,7 @@ const sessionMiddleware = session({
 secure: true
     }
 });
-
+app.set("trust proxy", 1);
 app.use(sessionMiddleware);
 
 // Existing API routes
