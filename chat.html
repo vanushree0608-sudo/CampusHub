@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -129,319 +128,429 @@
                 margin: 10px;
                 height: calc(100vh - 110px);
             }
+
+            form {
+                padding: 10px;
+            }
+
+            button {
+                padding: 10px 14px;
+            }
         }
     </style>
 
-    <!-- Socket.IO client supplied by the backend -->
-    <script src="/socket.io/socket.io.js"></script>
+    <!-- Load Socket.IO from Railway -->
+    <script src="https://campushub-production-69eb.up.railway.app/socket.io/socket.io.js"></script>
 </head>
 
 <body>
 
-    <header>
-        <h2>CampusHub 💬</h2>
-        <a href="projects.html">← Back to Projects</a>
-    </header>
+<header>
+    <h2>CampusHub 💬</h2>
+    <a href="projects.html">← Back to Projects</a>
+</header>
 
-    <main class="chat-container">
-        <div class="chat-heading">
-    <div id="projectTitle">Project Team Chat</div>
-    <div id="onlineStatus" style="font-size: 12px; font-weight: normal; margin-top: 6px; color: #16a34a;">
-        🟢 Waiting for teammates...
+<main class="chat-container">
+
+    <div class="chat-heading">
+        <div id="projectTitle">Project Team Chat</div>
+
+        <div id="onlineStatus"
+             style="font-size:12px;font-weight:normal;margin-top:6px;color:#16a34a;">
+            🟢 Waiting for teammates...
+        </div>
     </div>
-</div>
 
-        <div id="messages">Loading messages...</div>
+    <div id="messages">Loading messages...</div>
 
-        <div id="status">Connecting to chat...</div>
+    <div id="status">Connecting to chat...</div>
 
-        <form id="messageForm">
-            <input
-                type="text"
-                id="messageInput"
-                placeholder="Type your message..."
-                maxlength="2000"
-                autocomplete="off"
-                required
-            >
-            <button type="submit" id="sendButton">Send</button>
-        </form>
-    </main>
+    <form id="messageForm">
+        <input
+            type="text"
+            id="messageInput"
+            placeholder="Type your message..."
+            maxlength="2000"
+            autocomplete="off"
+            required
+        >
+        <button type="submit" id="sendButton">Send</button>
+    </form>
 
-    <script>
-        const params = new URLSearchParams(location.search);
-        const projectId = params.get("projectId");
+</main>
 
-        const messagesBox = document.getElementById("messages");
-        const statusBox = document.getElementById("status");
-        const messageInput = document.getElementById("messageInput");
-        const sendButton = document.getElementById("sendButton");
-        const messageForm = document.getElementById("messageForm");
-        messageInput.addEventListener("input", () => {
-    if (socket && joinedProject && messageInput.value.trim()) {
-        socket.emit("typing", projectId);
+<script>
+    const API_BASE =
+        "https://campushub-production-69eb.up.railway.app";
+
+    const params = new URLSearchParams(location.search);
+    const projectId = params.get("projectId");
+
+    const messagesBox = document.getElementById("messages");
+    const statusBox = document.getElementById("status");
+    const messageInput = document.getElementById("messageInput");
+    const sendButton = document.getElementById("sendButton");
+    const messageForm = document.getElementById("messageForm");
+    const onlineStatus = document.getElementById("onlineStatus");
+
+    let currentUserId = null;
+    let socket = null;
+    let joinedProject = false;
+
+    // ===============================
+    // API Request Helper
+    // ===============================
+
+    async function apiRequest(path, options = {}) {
+        const response = await fetch(`${API_BASE}${path}`, {
+            ...options,
+            credentials: "include",
+            headers: {
+                ...(options.headers || {})
+            }
+        });
+
+        const contentType =
+            response.headers.get("content-type") || "";
+
+        if (!contentType.includes("application/json")) {
+            const responseText = await response.text();
+
+            console.error(
+                "Non-JSON API response:",
+                response.status,
+                responseText.slice(0, 300)
+            );
+
+            throw new Error(
+                `Unexpected server response (${response.status}). Check the API route.`
+            );
+        }
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.message || "Request failed."
+            );
+        }
+
+        return data;
     }
-});
 
-        let currentUserId = null;
-        let socket = null;
-        let joinedProject = false;
+    function showStatus(message) {
+        statusBox.textContent = message;
+    }
 
-        async function apiRequest(url, options = {}) {
-            const response = await fetch(url, {
-                ...options,
-                credentials: "include",
-                headers: {
-                    "Content-Type": "application/json",
-                    ...(options.headers || {})
-                }
-            });
+    // ===============================
+    // Format Message Time
+    // ===============================
 
-            const data = await response.json();
+    function formatTime(value) {
+        const date = new Date(value);
 
-            if (!response.ok) {
-                throw new Error(data.message || "Request failed.");
+        if (Number.isNaN(date.getTime())) {
+            return "";
+        }
+
+        return date.toLocaleString();
+    }
+
+    // ===============================
+    // Render Messages
+    // ===============================
+
+    function renderMessage(message) {
+        if (
+            message.id &&
+            messagesBox.querySelector(
+                `[data-message-id="${message.id}"]`
+            )
+        ) {
+            return;
+        }
+
+        const wasNearBottom =
+            messagesBox.scrollHeight -
+            messagesBox.scrollTop -
+            messagesBox.clientHeight < 60;
+
+        const emptyMessage =
+            messagesBox.querySelector(".empty-message");
+
+        if (emptyMessage) {
+            emptyMessage.remove();
+        }
+
+        const bubble = document.createElement("div");
+        bubble.className = "message";
+
+        if (message.id) {
+            bubble.dataset.messageId = message.id;
+        }
+
+        const isMine =
+            Number(message.sender_id) === Number(currentUserId);
+
+        if (isMine) {
+            bubble.classList.add("mine");
+        }
+
+        const sender = document.createElement("span");
+        sender.className = "sender";
+        sender.textContent = message.sender_name || "Student";
+
+        const content = document.createElement("div");
+        content.textContent = message.message || "";
+
+        const time = document.createElement("span");
+        time.className = "message-time";
+        time.textContent = formatTime(message.created_at);
+
+        if (isMine) {
+            const receipt = document.createElement("span");
+            receipt.className = "read-receipt";
+            receipt.textContent = message.read_at ? " ✓✓" : " ✓";
+            receipt.style.color =
+                message.read_at ? "#2196f3" : "#9ca3af";
+
+            time.appendChild(receipt);
+        }
+
+        bubble.append(sender, content, time);
+        messagesBox.appendChild(bubble);
+
+        if (wasNearBottom) {
+            messagesBox.scrollTop = messagesBox.scrollHeight;
+        }
+    }
+
+    // ===============================
+    // Load Existing Messages
+    // ===============================
+
+    async function loadMessages() {
+        const data = await apiRequest(
+            `/api/projects/${encodeURIComponent(projectId)}/messages`
+        );
+
+        messagesBox.replaceChildren();
+
+        if (!data.messages || data.messages.length === 0) {
+            const empty = document.createElement("p");
+            empty.className = "empty-message";
+            empty.textContent =
+                "No messages yet. Say hello to your team! 👋";
+
+            messagesBox.appendChild(empty);
+            return;
+        }
+
+        data.messages.forEach(renderMessage);
+        messagesBox.scrollTop = messagesBox.scrollHeight;
+    }
+
+    // ===============================
+    // Connect Live Chat
+    // ===============================
+
+    function connectLiveChat() {
+        socket = io(API_BASE, {
+            withCredentials: true
+        });
+
+        socket.on("connect", () => {
+            joinedProject = false;
+            sendButton.disabled = true;
+
+            showStatus("Connecting to project chat...");
+
+            socket.emit("joinProject", projectId);
+        });
+
+        socket.on("projectJoined", joinedProjectId => {
+            if (Number(joinedProjectId) === Number(projectId)) {
+                joinedProject = true;
+
+                showStatus("🟢 Live chat connected");
+
+                messageInput.disabled = false;
+                sendButton.disabled = false;
             }
+        });
 
-            return data;
-        }
-
-        function showStatus(message) {
-            statusBox.textContent = message;
-        }
-
-        function formatTime(value) {
-            const date = new Date(value);
-
-            if (Number.isNaN(date.getTime())) {
-                return "";
-            }
-
-            return date.toLocaleString();
-        }
-
-        function renderMessage(message) {
-            // Avoid displaying the same message twice.
+        socket.on("newMessage", message => {
             if (
-                message.id &&
-                messagesBox.querySelector(
-                    `[data-message-id="${message.id}"]`
-                )
+                Number(message.project_id) !== Number(projectId)
             ) {
                 return;
             }
 
-            const wasNearBottom =
-                messagesBox.scrollHeight -
-                messagesBox.scrollTop -
-                messagesBox.clientHeight < 60;
+            renderMessage(message);
+        });
 
-            const emptyMessage = messagesBox.querySelector(".empty-message");
-            if (emptyMessage) {
-                emptyMessage.remove();
-            }
-
-            const bubble = document.createElement("div");
-            bubble.className = "message";
-
-            if (message.id) {
-                bubble.dataset.messageId = message.id;
-            }
-
-            if (Number(message.sender_id) === Number(currentUserId)) {
-                bubble.classList.add("mine");
-            }
-
-            const sender = document.createElement("span");
-            sender.className = "sender";
-            sender.textContent = message.sender_name || "Student";
-
-            const content = document.createElement("div");
-            content.textContent = message.message;
-
-            const time = document.createElement("span");
-            time.className = "message-time";
-            time.textContent = formatTime(message.created_at);
-            const receipt = document.createElement("span");
-receipt.className = "read-receipt";
-
-if (Number(message.sender_id) === Number(currentUserId)) {
-    receipt.textContent = message.read_at ? "✓✓" : "✓";
-    receipt.style.color = message.read_at ? "#2196f3" : "#9ca3af";
-    receipt.style.marginLeft = "6px";
-}
-
-            bubble.append(sender, content, time);
-
-if (Number(message.sender_id) === Number(currentUserId)) {
-    time.appendChild(receipt);
-}
-            messagesBox.appendChild(bubble);
-
-            if (wasNearBottom) {
-                messagesBox.scrollTop = messagesBox.scrollHeight;
-            }
-        }
-
-        async function loadMessages() {
-            const data = await apiRequest(
-                `/api/projects/${encodeURIComponent(projectId)}/messages`
+        socket.on("onlineUsers", userIds => {
+            const otherUsersOnline = userIds.filter(
+                id => Number(id) !== Number(currentUserId)
             );
 
-            messagesBox.replaceChildren();
+            if (otherUsersOnline.length > 0) {
+                onlineStatus.textContent =
+                    "🟢 " + otherUsersOnline.length +
+                    (otherUsersOnline.length === 1
+                        ? " teammate online"
+                        : " teammates online");
+            } else {
+                onlineStatus.textContent =
+                    "⚪ No teammates online";
+            }
+        });
 
-            if (!data.messages || data.messages.length === 0) {
-                const empty = document.createElement("p");
-                empty.className = "empty-message";
-                empty.textContent =
-                    "No messages yet. Say hello to your team! 👋";
-                messagesBox.appendChild(empty);
+        socket.on("userTyping", data => {
+            if (
+                Number(data.projectId) !== Number(projectId) ||
+                Number(data.userId) === Number(currentUserId)
+            ) {
                 return;
             }
 
-            data.messages.forEach(renderMessage);
-            messagesBox.scrollTop = messagesBox.scrollHeight;
-        }
+            showStatus("Someone is typing...");
 
-        function connectLiveChat() {
-            socket = io();
-
-            socket.on("connect", () => {
-                joinedProject = false;
-                showStatus("Connecting to project chat...");
-
-                socket.emit("joinProject", projectId);
-            });
-
-            socket.on("projectJoined", (joinedProjectId) => {
-                if (Number(joinedProjectId) === Number(projectId)) {
-                    joinedProject = true;
+            // Restore the live status after a short pause.
+            setTimeout(() => {
+                if (joinedProject) {
                     showStatus("🟢 Live chat connected");
                 }
-            });
+            }, 1500);
+        });
 
-            socket.on("newMessage", (message) => {
-                if (Number(message.project_id) !== Number(projectId)) {
-                    return;
-                }
-
-                renderMessage(message);
-            });
-            socket.on("onlineUsers", (userIds) => {
-    const otherUsersOnline = userIds.filter(
-        id => Number(id) !== Number(currentUserId)
-    );
-
-    const status = document.getElementById("onlineStatus");
-
-    if (otherUsersOnline.length > 0) {
-        status.textContent = "🟢 " + otherUsersOnline.length +
-            (otherUsersOnline.length === 1
-                ? " teammate online"
-                : " teammates online");
-    } else {
-        status.textContent = "⚪ No teammates online";
-    }
-});
-socket.on("userTyping", (data) => {
-    if (
-        Number(data.projectId) !== Number(projectId) ||
-        Number(data.userId) === Number(currentUserId)
-    ) {
-        return;
-    }
-
-    showStatus("Someone is typing...");
-});
-            socket.on("connect_error", (error) => {
-                joinedProject = false;
-                showStatus(error.message || "Live connection failed.");
-            });
-
-            socket.on("disconnect", () => {
-                joinedProject = false;
-                showStatus("Reconnecting to live chat...");
-            });
-        }
-
-        async function initializeChat() {
-            if (!projectId || !/^\d+$/.test(projectId)) {
-                showStatus("Project ID missing. Open chat from a project.");
-                messageInput.disabled = true;
-                sendButton.disabled = true;
-                return;
-            }
-
+        socket.on("connect_error", error => {
+            joinedProject = false;
             messageInput.disabled = true;
             sendButton.disabled = true;
 
-            try {
-                const data = await apiRequest("/api/auth/me");
-                currentUserId = data.user.id;
+            showStatus(
+                error.message || "Live connection failed."
+            );
+        });
 
-                document.getElementById("projectTitle").textContent =
-                    `Project #${projectId} — Team Chat`;
-
-                await loadMessages();
-
-                connectLiveChat();
-            } catch (error) {
-                showStatus(error.message);
-                messageInput.disabled = true;
-                sendButton.disabled = true;
-            }
-        }
-
-        messageForm.addEventListener("submit", async (event) => {
-            event.preventDefault();
-
-            const message = messageInput.value.trim();
-
-            if (!message || !projectId || !joinedProject) {
-                if (!joinedProject) {
-                    showStatus("Please wait for the live chat to connect.");
-                }
-                return;
-            }
-
+        socket.on("disconnect", () => {
+            joinedProject = false;
+            messageInput.disabled = true;
             sendButton.disabled = true;
 
-            try {
-                await apiRequest(
-                    `/api/projects/${encodeURIComponent(projectId)}/messages`,
-                    {
-                        method: "POST",
-                        body: JSON.stringify({ message })
-                    }
-                );
+            showStatus("Reconnecting to live chat...");
+        });
+    }
 
-                messageInput.value = "";
-                messageInput.focus();
-            } catch (error) {
-                showStatus(error.message);
-            } finally {
-                sendButton.disabled = !joinedProject;
+    // ===============================
+    // Initialize Chat
+    // ===============================
+
+    async function initializeChat() {
+        if (!projectId || !/^\d+$/.test(projectId)) {
+            showStatus(
+                "Project ID missing. Open chat from a project."
+            );
+
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            return;
+        }
+
+        messageInput.disabled = true;
+        sendButton.disabled = true;
+
+        try {
+            const data = await apiRequest("/api/auth/me");
+
+            if (!data.user) {
+                throw new Error("Please log in first.");
             }
-        });
 
-        // Enable sending only after joining the project room.
-        document.addEventListener("DOMContentLoaded", () => {
-            const observer = new MutationObserver(() => {
-                if (joinedProject) {
-                    messageInput.disabled = false;
-                    sendButton.disabled = false;
+            currentUserId = data.user.id;
+
+            document.getElementById("projectTitle").textContent =
+                `Project #${projectId} — Team Chat`;
+
+            await loadMessages();
+
+            connectLiveChat();
+
+        } catch (error) {
+            console.error("Chat initialization error:", error);
+
+            showStatus(error.message);
+
+            messagesBox.textContent =
+                "Unable to load messages.";
+
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+        }
+    }
+
+    // ===============================
+    // Send Messages
+    // ===============================
+
+    messageForm.addEventListener("submit", async event => {
+        event.preventDefault();
+
+        const message = messageInput.value.trim();
+
+        if (!message || !projectId || !joinedProject) {
+            if (!joinedProject) {
+                showStatus(
+                    "Please wait for the live chat to connect."
+                );
+            }
+
+            return;
+        }
+
+        sendButton.disabled = true;
+
+        try {
+            await apiRequest(
+                `/api/projects/${encodeURIComponent(projectId)}/messages`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ message })
                 }
-            });
+            );
 
-            observer.observe(statusBox, {
-                childList: true,
-                characterData: true,
-                subtree: true
-            });
-        });
+            messageInput.value = "";
+            messageInput.focus();
 
-        initializeChat();
-    </script>
+        } catch (error) {
+            console.error("Sending message failed:", error);
+            showStatus(error.message);
+
+        } finally {
+            sendButton.disabled = !joinedProject;
+        }
+    });
+
+    // ===============================
+    // Typing Indicator
+    // ===============================
+
+    messageInput.addEventListener("input", () => {
+        if (
+            socket &&
+            joinedProject &&
+            messageInput.value.trim()
+        ) {
+            socket.emit("typing", projectId);
+        }
+    });
+
+    initializeChat();
+</script>
 
 </body>
 </html>
