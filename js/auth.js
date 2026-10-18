@@ -1,3 +1,76 @@
+// CampusHub Custom Purple Popup
+
+function showCampusHubAlert(message) {
+    return new Promise(resolve => {
+        const overlay = document.createElement("div");
+
+        overlay.style.cssText = `
+            position: fixed;
+            inset: 0;
+            background: rgba(20, 18, 45, 0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            padding: 20px;
+        `;
+
+        const popup = document.createElement("div");
+
+        popup.style.cssText = `
+            background: white;
+            color: #252044;
+            width: 100%;
+            max-width: 340px;
+            padding: 28px 24px;
+            border-radius: 18px;
+            text-align: center;
+            box-shadow: 0 15px 45px rgba(0,0,0,0.2);
+            font-family: Arial, sans-serif;
+        `;
+
+        const title = document.createElement("h2");
+        title.textContent = "CampusHub 💜";
+        title.style.cssText = `
+            color: #4338ca;
+            margin: 0 0 16px;
+            font-size: 24px;
+        `;
+
+        const text = document.createElement("p");
+        text.textContent = String(message);
+        text.style.cssText = `
+            font-size: 16px;
+            line-height: 1.5;
+            margin: 0 0 24px;
+            overflow-wrap: anywhere;
+        `;
+
+        const button = document.createElement("button");
+        button.textContent = "OK";
+        button.style.cssText = `
+            background: #4338ca;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 36px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        `;
+
+        popup.append(title, text, button);
+        overlay.appendChild(popup);
+        document.body.appendChild(overlay);
+
+        button.addEventListener("click", () => {
+            overlay.remove();
+            resolve();
+        });
+
+        button.focus();
+    });
+}
 // CampusHub Authentication
 
 
