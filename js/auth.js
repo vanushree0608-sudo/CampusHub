@@ -164,21 +164,15 @@ if (signupForm) {
 
         .then(response => response.json())
 
-        .then(data => {
+        .then(async data => {
 
-            alert(data.message);
+    await showCampusHubAlert(data.message);
 
+    if (data.message === "Account created successfully!") {
+        window.location.href = "dashboard.html";
+    }
 
-            // After successful signup,
-            // directly open Dashboard
-
-            if (data.message === "Account created successfully!") {
-
-                window.location.href = "dashboard.html";
-
-            }
-
-        })
+})
 
         .catch(error => {
 
