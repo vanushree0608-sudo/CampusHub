@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CampusHub | Messages</title>
+
     <style>
         body {
             margin: 0;
@@ -46,11 +47,21 @@
             cursor: pointer;
         }
 
+        .project-card button:hover {
+            background: #3730a3;
+        }
+
+        .project-card button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         #status {
             color: #555;
         }
     </style>
 </head>
+
 <body>
     <header>
         <h2>CampusHub 💬 Messages</h2>
@@ -64,14 +75,33 @@
     </main>
 
     <script>
+        const API_BASE =
+            "https://campushub-production-69eb.up.railway.app";
+
         async function loadProjects() {
             const status = document.getElementById("status");
             const container = document.getElementById("projects");
 
+            status.textContent = "Loading your projects...";
+            container.replaceChildren();
+
             try {
-                const response = await fetch("/api/projects/", {
-                    credentials: "include"
-                });
+                const response = await fetch(
+                    `${API_BASE}/api/projects/`,
+                    {
+                        credentials: "include"
+                    }
+                );
+
+                let data;
+
+                try {
+                    data = await response.json();
+                } catch (error) {
+                    throw new Error(
+                        `Unexpected server response (${response.status}).`
+                    );
+                }
 
                 if (response.status === 401) {
                     status.textContent = "Please log in first.";
@@ -79,13 +109,14 @@
                 }
 
                 if (!response.ok) {
-                    throw new Error("Could not load projects.");
+                    throw new Error(
+                        data.message || "Could not load projects."
+                    );
                 }
 
-                const data = await response.json();
-                const projects = data.projects || [];
-
-                container.replaceChildren();
+                const projects = Array.isArray(data.projects)
+                    ? data.projects
+                    : [];
 
                 if (projects.length === 0) {
                     status.textContent = "No projects found yet.";
@@ -99,22 +130,31 @@
                     card.className = "project-card";
 
                     const title = document.createElement("h3");
-                    title.textContent = project.project_name;
+                    title.textContent =
+                        project.project_name || "Untitled Project";
+
+                    const description = document.createElement("p");
+                    description.textContent =
+                        project.description || "No description available.";
 
                     const button = document.createElement("button");
                     button.textContent = "Open Team Chat";
+
                     button.addEventListener("click", () => {
                         window.location.href =
                             `chat.html?projectId=${encodeURIComponent(project.id)}`;
                     });
 
-                    card.append(title, button);
+                    card.append(title, description, button);
                     container.appendChild(card);
                 });
+
             } catch (error) {
+                console.error("Messages page loading error:", error);
+
                 status.textContent =
-                    "Couldn't load projects. Please check your connection and try again.";
-                console.error(error);
+                    error.message ||
+                    "Couldn't load projects. Please try again.";
             }
         }
 
