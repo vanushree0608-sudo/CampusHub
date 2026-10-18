@@ -97,8 +97,8 @@ router.post("/register", async (req, res) => {
     console.error("SIGNUP INSERT ERROR:", err.code, err.sqlMessage);
 
     return res.status(500).json({
-        message: "Could not create account. Error code: " +
-            (err.code || "UNKNOWN")
+        message: "Signup error: " +
+            (err.sqlMessage || err.code || "UNKNOWN")
     });
 }
 
