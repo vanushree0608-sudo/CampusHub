@@ -18,44 +18,48 @@ router.post("/register", async (req, res) => {
         collegeName
     } = req.body || {};
 
-    // Check required fields
+    // Validate required fields
     if (
-        !fullName?.trim() ||
-        !username?.trim() ||
-        !email?.trim() ||
+        typeof fullName !== "string" ||
+        typeof username !== "string" ||
+        typeof email !== "string" ||
+        typeof password !== "string" ||
+        typeof registerNumber !== "string" ||
+        typeof collegeName !== "string" ||
+        !fullName.trim() ||
+        !username.trim() ||
+        !email.trim() ||
         !password ||
-        !registerNumber?.trim() ||
-        !collegeName?.trim()
+        !registerNumber.trim() ||
+        !collegeName.trim()
     ) {
         return res.status(400).json({
             message: "Please fill in all required fields."
         });
     }
 
-    // Validate email
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailPattern.test(email.trim())) {
-        return res.status(400).json({
-            message: "Please enter a valid email address."
-        });
-    }
-
-    // Validate password
     if (password.length < 8) {
         return res.status(400).json({
             message: "Password must contain at least 8 characters."
         });
     }
 
-    try {
-        const cleanFullName = fullName.trim();
-        const cleanUsername = username.trim();
-        const cleanEmail = email.trim().toLowerCase();
-        const cleanRegisterNumber = registerNumber.trim();
-        const cleanCollegeName = collegeName.trim();
+    const cleanFullName = fullName.trim();
+    const cleanUsername = username.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanRegisterNumber = registerNumber.trim();
+    const cleanCollegeName = collegeName.trim();
 
-        // Check for existing username, email or register number
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailPattern.test(cleanEmail)) {
+        return res.status(400).json({
+            message: "Please enter a valid email address."
+        });
+    }
+
+    try {
+        // Check whether the username, email or register number exists.
         const checkQuery = `
             SELECT id
             FROM users
@@ -75,9 +79,9 @@ router.post("/register", async (req, res) => {
             async (checkError, results) => {
                 if (checkError) {
                     console.error(
-                        "Signup duplicate-check error:",
+                        "SIGNUP CHECK ERROR:",
                         checkError.code,
-                        checkError.message
+                        checkError.sqlMessage || checkError.message
                     );
 
                     return res.status(500).json({
@@ -93,13 +97,11 @@ router.post("/register", async (req, res) => {
                 }
 
                 try {
-                    // Hash password
                     const hashedPassword =
                         await bcrypt.hash(password, 10);
 
-                    // IMPORTANT:
-                    // Include profile_picture explicitly because
-                    // the Railway database requires this field.
+                    // Include profile_picture because the database
+                    // requires a value for this column.
                     const insertQuery = `
                         INSERT INTO users (
                             full_name,
@@ -127,47 +129,48 @@ router.post("/register", async (req, res) => {
                         (insertError, result) => {
                             if (insertError) {
                                 console.error(
-                                    "Signup insert error:",
+                                    "SIGNUP INSERT ERROR:",
                                     insertError.code,
                                     insertError.sqlMessage ||
                                         insertError.message
                                 );
 
-                                if (
-                                    insertError.code === "ER_DUP_ENTRY"
-                                ) {
-                                    return res.status(409).json({
-                                        message:
-                                            "Username, email or register number already exists."
-                                    });
-                                }
-
+                                // Temporary diagnostic response:
+                                // use this to identify the database
+                                // constraint preventing registration.
                                 return res.status(500).json({
-    message: "Signup error: " +
-        (insertError.sqlMessage || insertError.code || "UNKNOWN")
-});
+                                    message:
+                                        "Signup error: " +
+                                        (
+                                            insertError.sqlMessage ||
+                                            insertError.code ||
+                                            "UNKNOWN"
+                                        )
+                                });
                             }
 
                             return res.status(201).json({
-                                message: "Account created successfully!",
+                                message:
+                                    "Account created successfully!",
                                 userId: result.insertId
                             });
                         }
                     );
                 } catch (hashError) {
                     console.error(
-                        "Password hashing error:",
+                        "SIGNUP PROCESSING ERROR:",
                         hashError.message
                     );
 
                     return res.status(500).json({
-                        message: "Could not process account registration."
+                        message:
+                            "Could not process account registration."
                     });
                 }
             }
         );
     } catch (error) {
-        console.error("Registration error:", error.message);
+        console.error("REGISTRATION ERROR:", error.message);
 
         return res.status(500).json({
             message: "Server error during registration."
@@ -182,11 +185,18 @@ router.post("/register", async (req, res) => {
 router.post("/login", (req, res) => {
     const { usernameOrEmail, password } = req.body || {};
 
-    if (!usernameOrEmail || !password) {
+    if (
+        typeof usernameOrEmail !== "string" ||
+        !usernameOrEmail.trim() ||
+        typeof password !== "string" ||
+        !password
+    ) {
         return res.status(400).json({
             message: "Please enter username/email and password."
         });
     }
+
+    const loginValue = usernameOrEmail.trim();
 
     const query = `
         SELECT *
@@ -197,10 +207,10 @@ router.post("/login", (req, res) => {
 
     db.query(
         query,
-        [usernameOrEmail.trim(), usernameOrEmail.trim().toLowerCase()],
+        [loginValue, loginValue.toLowerCase()],
         async (err, results) => {
             if (err) {
-                console.error("Login database error:", err.code);
+                console.error("LOGIN DATABASE ERROR:", err.code);
 
                 return res.status(500).json({
                     message: "Database error."
@@ -233,8 +243,8 @@ router.post("/login", (req, res) => {
                 req.session.save((sessionError) => {
                     if (sessionError) {
                         console.error(
-                            "Session save error:",
-                            sessionError
+                            "SESSION SAVE ERROR:",
+                            sessionError.message
                         );
 
                         return res.status(500).json({
@@ -249,7 +259,7 @@ router.post("/login", (req, res) => {
                     });
                 });
             } catch (error) {
-                console.error("Login processing error:", error.message);
+                console.error("LOGIN PROCESSING ERROR:", error.message);
 
                 return res.status(500).json({
                     message: "Could not process login."
@@ -289,7 +299,7 @@ router.get("/me", (req, res) => {
 
     db.query(query, [req.session.userId], (err, results) => {
         if (err) {
-            console.error("Get user error:", err.code);
+            console.error("GET USER ERROR:", err.code);
 
             return res.status(500).json({
                 message: "Database error."
@@ -327,7 +337,12 @@ router.put("/profile", (req, res) => {
         accountType
     } = req.body || {};
 
-    if (!fullName?.trim() || !collegeName?.trim()) {
+    if (
+        typeof fullName !== "string" ||
+        typeof collegeName !== "string" ||
+        !fullName.trim() ||
+        !collegeName.trim()
+    ) {
         return res.status(400).json({
             message: "Full name and college name are required."
         });
@@ -355,7 +370,7 @@ router.put("/profile", (req, res) => {
         ],
         (err) => {
             if (err) {
-                console.error("Profile update error:", err.code);
+                console.error("PROFILE UPDATE ERROR:", err.code);
 
                 return res.status(500).json({
                     message: "Could not update profile."
@@ -384,7 +399,7 @@ router.get("/students", (req, res) => {
 
     db.query(query, (err, results) => {
         if (err) {
-            console.error("Load students error:", err.code);
+            console.error("LOAD STUDENTS ERROR:", err.code);
 
             return res.status(500).json({
                 message: "Could not load students."
@@ -394,6 +409,7 @@ router.get("/students", (req, res) => {
         const students = results
             .filter(
                 student =>
+                    currentUserId == null ||
                     Number(student.id) !== Number(currentUserId)
             )
             .map(student => ({
