@@ -32,6 +32,15 @@ fetch("https://campushub-production-69eb.up.railway.app/api/projects/", {
 .then(data => {
 
     console.log("Projects received:", data);
+    console.log("Logged-in user ID:", data.currentUserId);
+
+console.log(
+    "Project owner IDs:",
+    data.projects?.map(project => ({
+        name: project.project_name,
+        ownerId: project.user_id
+    }))
+);
 
     const projectsContainer =
         document.querySelector("#projectsContainer");
