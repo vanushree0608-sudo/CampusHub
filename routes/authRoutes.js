@@ -143,8 +143,9 @@ router.post("/register", async (req, res) => {
                                 }
 
                                 return res.status(500).json({
-                                    message: "Could not create account."
-                                });
+    message: "Signup error: " +
+        (insertError.sqlMessage || insertError.code || "UNKNOWN")
+});
                             }
 
                             return res.status(201).json({
