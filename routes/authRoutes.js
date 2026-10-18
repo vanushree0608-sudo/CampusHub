@@ -38,18 +38,8 @@ router.post("/register", async (req, res) => {
         });
     }
 
-    if (password.length < 8) {
-        return res.status(400).json({
-            message: "Password must contain at least 8 characters."
-        });
-    }
-
-    const cleanFullName = fullName.trim();
-    const cleanUsername = username.trim();
+    // Validate email
     const cleanEmail = email.trim().toLowerCase();
-    const cleanRegisterNumber = registerNumber.trim();
-    const cleanCollegeName = collegeName.trim();
-
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailPattern.test(cleanEmail)) {
@@ -58,124 +48,139 @@ router.post("/register", async (req, res) => {
         });
     }
 
-    try {
-        // Check whether the username, email or register number exists.
-        const checkQuery = `
-            SELECT id
-            FROM users
-            WHERE username = ?
-               OR email = ?
-               OR register_number = ?
-            LIMIT 1
-        `;
+    // Validate password
+    if (password.length < 8) {
+        return res.status(400).json({
+            message: "Password must contain at least 8 characters."
+        });
+    }
 
-        db.query(
-            checkQuery,
-            [
-                cleanUsername,
-                cleanEmail,
-                cleanRegisterNumber
-            ],
-            async (checkError, results) => {
-                if (checkError) {
-                    console.error(
-                        "SIGNUP CHECK ERROR:",
-                        checkError.code,
-                        checkError.sqlMessage || checkError.message
-                    );
+    const cleanFullName = fullName.trim();
+    const cleanUsername = username.trim();
+    const cleanRegisterNumber = registerNumber.trim();
+    const cleanCollegeName = collegeName.trim();
 
-                    return res.status(500).json({
-                        message: "Could not check account details."
-                    });
-                }
+    // Check existing accounts
+    const checkQuery = `
+        SELECT id
+        FROM users
+        WHERE username = ?
+           OR email = ?
+           OR register_number = ?
+        LIMIT 1
+    `;
 
-                if (results.length > 0) {
-                    return res.status(409).json({
-                        message:
-                            "Username, email or register number already exists."
-                    });
-                }
+    db.query(
+        checkQuery,
+        [
+            cleanUsername,
+            cleanEmail,
+            cleanRegisterNumber
+        ],
+        async (checkError, results) => {
+            if (checkError) {
+                console.error(
+                    "SIGNUP CHECK ERROR:",
+                    checkError.code,
+                    checkError.sqlMessage || checkError.message
+                );
 
-                try {
-                    const hashedPassword =
-                        await bcrypt.hash(password, 10);
+                return res.status(500).json({
+                    message: "Could not check account details."
+                });
+            }
 
-                    // Include profile_picture because the database
-                    // requires a value for this column.
-                    const insertQuery = `
-                        INSERT INTO users (
-                            full_name,
-                            username,
-                            email,
-                            password,
-                            register_number,
-                            college_name,
-                            profile_picture
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    `;
+            if (results.length > 0) {
+                return res.status(409).json({
+                    message:
+                        "Username, email or register number already exists."
+                });
+            }
 
-                    db.query(
-                        insertQuery,
-                        [
-                            cleanFullName,
-                            cleanUsername,
-                            cleanEmail,
-                            hashedPassword,
-                            cleanRegisterNumber,
-                            cleanCollegeName,
-                            ""
-                        ],
-                        (insertError, result) => {
-                            if (insertError) {
-                                console.error(
-                                    "SIGNUP INSERT ERROR:",
-                                    insertError.code,
-                                    insertError.sqlMessage ||
-                                        insertError.message
-                                );
+            try {
+                const hashedPassword =
+                    await bcrypt.hash(password, 10);
 
-                                // Temporary diagnostic response:
-                                // use this to identify the database
-                                // constraint preventing registration.
-                                return res.status(500).json({
+                // Include the profile fields that the database
+                // has previously reported as required.
+                const insertQuery = `
+                    INSERT INTO users (
+                        full_name,
+                        username,
+                        email,
+                        password,
+                        register_number,
+                        college_name,
+                        profile_picture,
+                        bio,
+                        skills,
+                        account_type,
+                        points,
+                        status
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `;
+
+                const values = [
+                    cleanFullName,
+                    cleanUsername,
+                    cleanEmail,
+                    hashedPassword,
+                    cleanRegisterNumber,
+                    cleanCollegeName,
+                    "",
+                    "",
+                    "",
+                    "public",
+                    0,
+                    "active"
+                ];
+
+                db.query(
+                    insertQuery,
+                    values,
+                    (insertError, result) => {
+                        if (insertError) {
+                            console.error(
+                                "SIGNUP INSERT ERROR:",
+                                insertError.code,
+                                insertError.sqlMessage ||
+                                    insertError.message
+                            );
+
+                            if (
+                                insertError.code === "ER_DUP_ENTRY"
+                            ) {
+                                return res.status(409).json({
                                     message:
-                                        "Signup error: " +
-                                        (
-                                            insertError.sqlMessage ||
-                                            insertError.code ||
-                                            "UNKNOWN"
-                                        )
+                                        "Username, email or register number already exists."
                                 });
                             }
 
-                            return res.status(201).json({
-                                message:
-                                    "Account created successfully!",
-                                userId: result.insertId
+                            return res.status(500).json({
+                                message: "Could not create account."
                             });
                         }
-                    );
-                } catch (hashError) {
-                    console.error(
-                        "SIGNUP PROCESSING ERROR:",
-                        hashError.message
-                    );
 
-                    return res.status(500).json({
-                        message:
-                            "Could not process account registration."
-                    });
-                }
+                        return res.status(201).json({
+                            message: "Account created successfully!",
+                            userId: result.insertId
+                        });
+                    }
+                );
+            } catch (error) {
+                console.error(
+                    "SIGNUP PROCESSING ERROR:",
+                    error.message
+                );
+
+                return res.status(500).json({
+                    message:
+                        "Could not process account registration."
+                });
             }
-        );
-    } catch (error) {
-        console.error("REGISTRATION ERROR:", error.message);
-
-        return res.status(500).json({
-            message: "Server error during registration."
-        });
-    }
+        }
+    );
 });
 
 // =====================================
@@ -207,7 +212,7 @@ router.post("/login", (req, res) => {
 
     db.query(
         query,
-        [loginValue, loginValue.toLowerCase()],
+        [loginValue, loginValue],
         async (err, results) => {
             if (err) {
                 console.error("LOGIN DATABASE ERROR:", err.code);
@@ -219,7 +224,8 @@ router.post("/login", (req, res) => {
 
             if (results.length === 0) {
                 return res.status(401).json({
-                    message: "Invalid username/email or password."
+                    message:
+                        "Invalid username/email or password."
                 });
             }
 
@@ -233,7 +239,8 @@ router.post("/login", (req, res) => {
 
                 if (!passwordMatch) {
                     return res.status(401).json({
-                        message: "Invalid username/email or password."
+                        message:
+                            "Invalid username/email or password."
                     });
                 }
 
@@ -248,7 +255,8 @@ router.post("/login", (req, res) => {
                         );
 
                         return res.status(500).json({
-                            message: "Could not save login session."
+                            message:
+                                "Could not save login session."
                         });
                     }
 
@@ -259,7 +267,10 @@ router.post("/login", (req, res) => {
                     });
                 });
             } catch (error) {
-                console.error("LOGIN PROCESSING ERROR:", error.message);
+                console.error(
+                    "LOGIN PROCESSING ERROR:",
+                    error.message
+                );
 
                 return res.status(500).json({
                     message: "Could not process login."
@@ -344,7 +355,8 @@ router.put("/profile", (req, res) => {
         !collegeName.trim()
     ) {
         return res.status(400).json({
-            message: "Full name and college name are required."
+            message:
+                "Full name and college name are required."
         });
     }
 
@@ -370,7 +382,10 @@ router.put("/profile", (req, res) => {
         ],
         (err) => {
             if (err) {
-                console.error("PROFILE UPDATE ERROR:", err.code);
+                console.error(
+                    "PROFILE UPDATE ERROR:",
+                    err.code
+                );
 
                 return res.status(500).json({
                     message: "Could not update profile."
