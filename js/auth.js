@@ -1,4 +1,6 @@
+// =====================================
 // CampusHub Custom Purple Popup
+// =====================================
 
 function showCampusHubAlert(message) {
     return new Promise(resolve => {
@@ -17,6 +19,10 @@ function showCampusHubAlert(message) {
 
         const popup = document.createElement("div");
 
+        popup.setAttribute("role", "dialog");
+        popup.setAttribute("aria-modal", "true");
+        popup.setAttribute("aria-labelledby", "campushub-popup-title");
+
         popup.style.cssText = `
             background: white;
             color: #252044;
@@ -30,7 +36,9 @@ function showCampusHubAlert(message) {
         `;
 
         const title = document.createElement("h2");
+        title.id = "campushub-popup-title";
         title.textContent = "CampusHub 💜";
+
         title.style.cssText = `
             color: #4338ca;
             margin: 0 0 16px;
@@ -38,7 +46,8 @@ function showCampusHubAlert(message) {
         `;
 
         const text = document.createElement("p");
-        text.textContent = String(message);
+        text.textContent = String(message || "Please try again.");
+
         text.style.cssText = `
             font-size: 16px;
             line-height: 1.5;
@@ -48,6 +57,7 @@ function showCampusHubAlert(message) {
 
         const button = document.createElement("button");
         button.textContent = "OK";
+
         button.style.cssText = `
             background: #4338ca;
             color: white;
@@ -59,34 +69,71 @@ function showCampusHubAlert(message) {
             cursor: pointer;
         `;
 
+        function closePopup() {
+            overlay.remove();
+            document.removeEventListener("keydown", handleKeydown);
+            resolve();
+        }
+
+        function handleKeydown(event) {
+            if (event.key === "Escape") {
+                closePopup();
+            }
+        }
+
+        button.addEventListener("click", closePopup);
+        document.addEventListener("keydown", handleKeydown);
+
         popup.append(title, text, button);
         overlay.appendChild(popup);
         document.body.appendChild(overlay);
 
-        button.addEventListener("click", () => {
-            overlay.remove();
-            resolve();
-        });
-
         button.focus();
     });
 }
+
+
+// =====================================
+// Helper: Read Server Response
+// =====================================
+
+async function readAuthResponse(response) {
+    try {
+        return await response.json();
+    } catch (error) {
+        throw new Error(
+            `Unexpected server response (${response.status}). Please try again.`
+        );
+    }
+}
+
+
+// =====================================
 // CampusHub Authentication
+// =====================================
 
 
-// ================================
+// =====================================
 // Signup
-// ================================
+// =====================================
 
 const signupForm = document.querySelector("#signupForm");
 
 if (signupForm) {
-
-    signupForm.addEventListener("submit", function(event) {
-
+    signupForm.addEventListener("submit", async function(event) {
         event.preventDefault();
 
         const inputs = signupForm.querySelectorAll("input");
+
+        if (inputs.length < 7) {
+            console.error("Signup form is missing required input fields.");
+
+            await showCampusHubAlert(
+                "The signup form is incomplete. Please contact support."
+            );
+
+            return;
+        }
 
         const fullName = inputs[0].value.trim();
         const username = inputs[1].value.trim();
@@ -96,9 +143,7 @@ if (signupForm) {
         const registerNumber = inputs[5].value.trim();
         const collegeName = inputs[6].value.trim();
 
-
-        // Check empty fields
-
+        // Validate required fields
         if (
             !fullName ||
             !username ||
@@ -108,144 +153,172 @@ if (signupForm) {
             !registerNumber ||
             !collegeName
         ) {
-            alert("Please fill in all fields.");
+            await showCampusHubAlert("Please fill in all fields.");
             return;
         }
 
+        // Validate email
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-        // Check email
-
-        if (!email.includes("@")) {
-            alert("Please enter a valid email address.");
+        if (!emailPattern.test(email)) {
+            await showCampusHubAlert(
+                "Please enter a valid email address."
+            );
             return;
         }
 
-
-        // Check password length
-
+        // Validate password length
         if (password.length < 8) {
-            alert("Password must contain at least 8 characters.");
+            await showCampusHubAlert(
+                "Password must contain at least 8 characters."
+            );
             return;
         }
 
-
-        // Check password confirmation
-
+        // Validate password confirmation
         if (password !== confirmPassword) {
-            alert("Passwords do not match.");
+            await showCampusHubAlert("Passwords do not match.");
             return;
         }
 
+        const submitButton =
+            signupForm.querySelector('button[type="submit"]');
 
-        // Send account details to backend
+        if (submitButton) {
+            submitButton.disabled = true;
+        }
 
-        fetch("https://campushub-production-69eb.up.railway.app/api/auth/register", {
+        try {
+            const response = await fetch(
+                "https://campushub-production-69eb.up.railway.app/api/auth/register",
+                {
+                    method: "POST",
+                    credentials: "include",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        fullName,
+                        username,
+                        email,
+                        password,
+                        registerNumber,
+                        collegeName
+                    })
+                }
+            );
 
-            credentials: "include",
+            const data = await readAuthResponse(response);
 
-            method: "POST",
+            await showCampusHubAlert(
+                data.message ||
+                (response.ok
+                    ? "Request completed."
+                    : "Could not create account.")
+            );
 
-            headers: {
-                "Content-Type": "application/json"
-            },
+            if (
+                response.ok &&
+                data.message === "Account created successfully!"
+            ) {
+                window.location.href = "dashboard.html";
+            }
 
-            body: JSON.stringify({
-
-                fullName: fullName,
-                username: username,
-                email: email,
-                password: password,
-                registerNumber: registerNumber,
-                collegeName: collegeName
-
-            })
-
-        })
-
-        .then(response => response.json())
-
-        .then(async data => {
-
-    await showCampusHubAlert(data.message);
-
-    if (data.message === "Account created successfully!") {
-        window.location.href = "dashboard.html";
-    }
-
-})
-
-        .catch(error => {
-
+        } catch (error) {
             console.error("Signup error:", error);
 
-            alert("Unable to connect to the server.");
+            await showCampusHubAlert(
+                "Unable to connect to the server. Please try again."
+            );
 
-        });
-
+        } finally {
+            if (submitButton) {
+                submitButton.disabled = false;
+            }
+        }
     });
-
 }
 
 
-
-// ================================
+// =====================================
 // Login
-// ================================
+// =====================================
 
 const loginForm = document.querySelector("#loginForm");
 
 if (loginForm) {
-
-    loginForm.addEventListener("submit", function(event) {
-
+    loginForm.addEventListener("submit", async function(event) {
         event.preventDefault();
 
         const inputs = loginForm.querySelectorAll("input");
+
+        if (inputs.length < 2) {
+            await showCampusHubAlert(
+                "The login form is incomplete. Please refresh the page."
+            );
+            return;
+        }
 
         const usernameOrEmail = inputs[0].value.trim();
         const password = inputs[1].value;
 
         if (!usernameOrEmail || !password) {
-            alert("Please enter username/email and password.");
+            await showCampusHubAlert(
+                "Please enter username/email and password."
+            );
             return;
         }
 
-        fetch("https://campushub-production-69eb.up.railway.app/api/auth/login", {
-            credentials: "include",
+        const submitButton =
+            loginForm.querySelector('button[type="submit"]');
 
-            method: "POST",
+        if (submitButton) {
+            submitButton.disabled = true;
+        }
 
-            headers: {
-                "Content-Type": "application/json"
-            },
+        try {
+            const response = await fetch(
+                "https://campushub-production-69eb.up.railway.app/api/auth/login",
+                {
+                    method: "POST",
+                    credentials: "include",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        usernameOrEmail,
+                        password
+                    })
+                }
+            );
 
-            body: JSON.stringify({
-                usernameOrEmail: usernameOrEmail,
-                password: password
-            })
+            const data = await readAuthResponse(response);
 
-        })
+            await showCampusHubAlert(
+                data.message ||
+                (response.ok
+                    ? "Login request completed."
+                    : "Unable to log in.")
+            );
 
-        .then(response => response.json())
+            if (
+                response.ok &&
+                data.message === "Login successful!"
+            ) {
+                window.location.href = "dashboard.html";
+            }
 
-        .then(data => {
-
-           await showCampusHubAlert(data.message);
-
-if (data.message === "Login successful!") {
-    window.location.href = "dashboard.html";
-}
-
-})
-
-        .catch(error => {
-
+        } catch (error) {
             console.error("Login error:", error);
 
-            alert("Unable to connect to the server.");
+            await showCampusHubAlert(
+                "Unable to connect to the server. Please try again."
+            );
 
-        });
-
+        } finally {
+            if (submitButton) {
+                submitButton.disabled = false;
+            }
+        }
     });
-
 }
