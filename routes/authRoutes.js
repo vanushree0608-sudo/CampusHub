@@ -4,8 +4,11 @@ const db = require("../database");
 
 const router = express.Router();
 
-router.post("/register", async (req, res) => {
+// =====================================
+// Register New Account
+// =====================================
 
+router.post("/register", async (req, res) => {
     const {
         fullName,
         username,
@@ -13,16 +16,16 @@ router.post("/register", async (req, res) => {
         password,
         registerNumber,
         collegeName
-    } = req.body;
+    } = req.body || {};
 
     // Check required fields
     if (
-        !fullName ||
-        !username ||
-        !email ||
+        !fullName?.trim() ||
+        !username?.trim() ||
+        !email?.trim() ||
         !password ||
-        !registerNumber ||
-        !collegeName
+        !registerNumber?.trim() ||
+        !collegeName?.trim()
     ) {
         return res.status(400).json({
             message: "Please fill in all required fields."
@@ -32,7 +35,7 @@ router.post("/register", async (req, res) => {
     // Validate email
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    if (!emailPattern.test(email)) {
+    if (!emailPattern.test(email.trim())) {
         return res.status(400).json({
             message: "Please enter a valid email address."
         });
@@ -46,87 +49,137 @@ router.post("/register", async (req, res) => {
     }
 
     try {
+        const cleanFullName = fullName.trim();
+        const cleanUsername = username.trim();
+        const cleanEmail = email.trim().toLowerCase();
+        const cleanRegisterNumber = registerNumber.trim();
+        const cleanCollegeName = collegeName.trim();
 
-        // Check if username, email or register number already exists
+        // Check for existing username, email or register number
         const checkQuery = `
-            SELECT id FROM users
-            WHERE username = ? OR email = ? OR register_number = ?
+            SELECT id
+            FROM users
+            WHERE username = ?
+               OR email = ?
+               OR register_number = ?
+            LIMIT 1
         `;
 
         db.query(
             checkQuery,
-            [username, email, registerNumber],
-            async (err, results) => {
+            [
+                cleanUsername,
+                cleanEmail,
+                cleanRegisterNumber
+            ],
+            async (checkError, results) => {
+                if (checkError) {
+                    console.error(
+                        "Signup duplicate-check error:",
+                        checkError.code,
+                        checkError.message
+                    );
 
-                if (err) {
-                    console.log(err);
                     return res.status(500).json({
-                        message: "Database error."
+                        message: "Could not check account details."
                     });
                 }
 
                 if (results.length > 0) {
                     return res.status(409).json({
-                        message: "Username, email or register number already exists."
+                        message:
+                            "Username, email or register number already exists."
                     });
                 }
 
-                // Hash password
-                const hashedPassword = await bcrypt.hash(password, 10);
+                try {
+                    // Hash password
+                    const hashedPassword =
+                        await bcrypt.hash(password, 10);
 
-                // Insert user
-                const insertQuery = `
-                    INSERT INTO users
-                    (full_name, username, email, password, register_number, college_name)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                `;
+                    // IMPORTANT:
+                    // Include profile_picture explicitly because
+                    // the Railway database requires this field.
+                    const insertQuery = `
+                        INSERT INTO users (
+                            full_name,
+                            username,
+                            email,
+                            password,
+                            register_number,
+                            college_name,
+                            profile_picture
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    `;
 
-                db.query(
-                    insertQuery,
-                    [
-                        fullName,
-                        username,
-                        email,
-                        hashedPassword,
-                        registerNumber,
-                        collegeName
-                    ],
-                    (err, result) => {
+                    db.query(
+                        insertQuery,
+                        [
+                            cleanFullName,
+                            cleanUsername,
+                            cleanEmail,
+                            hashedPassword,
+                            cleanRegisterNumber,
+                            cleanCollegeName,
+                            ""
+                        ],
+                        (insertError, result) => {
+                            if (insertError) {
+                                console.error(
+                                    "Signup insert error:",
+                                    insertError.code,
+                                    insertError.sqlMessage ||
+                                        insertError.message
+                                );
 
-            if (err) {
-    console.error("SIGNUP INSERT ERROR:", err.code, err.sqlMessage);
+                                if (
+                                    insertError.code === "ER_DUP_ENTRY"
+                                ) {
+                                    return res.status(409).json({
+                                        message:
+                                            "Username, email or register number already exists."
+                                    });
+                                }
 
-    return res.status(500).json({
-        message: "Signup error: " +
-            (err.sqlMessage || err.code || "UNKNOWN")
-    });
-}
+                                return res.status(500).json({
+                                    message: "Could not create account."
+                                });
+                            }
 
-                        res.status(201).json({
-                            message: "Account created successfully!",
-                            userId: result.insertId
-                        });
-                    }
-                );
+                            return res.status(201).json({
+                                message: "Account created successfully!",
+                                userId: result.insertId
+                            });
+                        }
+                    );
+                } catch (hashError) {
+                    console.error(
+                        "Password hashing error:",
+                        hashError.message
+                    );
+
+                    return res.status(500).json({
+                        message: "Could not process account registration."
+                    });
+                }
             }
         );
-
     } catch (error) {
+        console.error("Registration error:", error.message);
 
-        console.log(error);
-
-        res.status(500).json({
-            message: "Server error."
+        return res.status(500).json({
+            message: "Server error during registration."
         });
     }
 });
-// ================================
+
+// =====================================
 // Login
-// ================================
+// =====================================
 
 router.post("/login", (req, res) => {
-
-    const { usernameOrEmail, password } = req.body;
+    const { usernameOrEmail, password } = req.body || {};
 
     if (!usernameOrEmail || !password) {
         return res.status(400).json({
@@ -135,17 +188,18 @@ router.post("/login", (req, res) => {
     }
 
     const query = `
-        SELECT * FROM users
+        SELECT *
+        FROM users
         WHERE username = ? OR email = ?
+        LIMIT 1
     `;
 
     db.query(
         query,
-        [usernameOrEmail, usernameOrEmail],
+        [usernameOrEmail.trim(), usernameOrEmail.trim().toLowerCase()],
         async (err, results) => {
-
             if (err) {
-                console.log(err);
+                console.error("Login database error:", err.code);
 
                 return res.status(500).json({
                     message: "Database error."
@@ -158,45 +212,57 @@ router.post("/login", (req, res) => {
                 });
             }
 
-            const user = results[0];
+            try {
+                const user = results[0];
 
-            const passwordMatch = await bcrypt.compare(
-                password,
-                user.password
-            );
+                const passwordMatch = await bcrypt.compare(
+                    password,
+                    user.password
+                );
 
-            if (!passwordMatch) {
-                return res.status(401).json({
-                    message: "Invalid username/email or password."
+                if (!passwordMatch) {
+                    return res.status(401).json({
+                        message: "Invalid username/email or password."
+                    });
+                }
+
+                req.session.userId = user.id;
+                req.session.username = user.username;
+
+                req.session.save((sessionError) => {
+                    if (sessionError) {
+                        console.error(
+                            "Session save error:",
+                            sessionError
+                        );
+
+                        return res.status(500).json({
+                            message: "Could not save login session."
+                        });
+                    }
+
+                    return res.status(200).json({
+                        message: "Login successful!",
+                        userId: user.id,
+                        username: user.username
+                    });
+                });
+            } catch (error) {
+                console.error("Login processing error:", error.message);
+
+                return res.status(500).json({
+                    message: "Could not process login."
                 });
             }
-   
-req.session.userId = user.id;
-req.session.username = user.username;
-
-req.session.save((sessionError) => {
-    if (sessionError) {
-        console.log("Session save error:", sessionError);
-        return res.status(500).json({
-            message: "Could not save login session."
-        });
-    }
-
-    res.status(200).json({
-        message: "Login successful!",
-        userId: user.id,
-        username: user.username
-    });
-});
         }
     );
 });
-// ================================
+
+// =====================================
 // Get Current Logged-in User
-// ================================
+// =====================================
 
 router.get("/me", (req, res) => {
-
     if (!req.session.userId) {
         return res.status(401).json({
             message: "Not logged in."
@@ -204,16 +270,25 @@ router.get("/me", (req, res) => {
     }
 
     const query = `
-        SELECT id, full_name, username, email, college_name,
-               profile_picture, bio, skills, account_type, points, status
+        SELECT
+            id,
+            full_name,
+            username,
+            email,
+            college_name,
+            profile_picture,
+            bio,
+            skills,
+            account_type,
+            points,
+            status
         FROM users
         WHERE id = ?
     `;
 
     db.query(query, [req.session.userId], (err, results) => {
-
         if (err) {
-            console.log(err);
+            console.error("Get user error:", err.code);
 
             return res.status(500).json({
                 message: "Database error."
@@ -226,17 +301,17 @@ router.get("/me", (req, res) => {
             });
         }
 
-        res.status(200).json({
+        return res.status(200).json({
             user: results[0]
         });
     });
 });
-// ================================
+
+// =====================================
 // Update Profile
-// ================================
+// =====================================
 
 router.put("/profile", (req, res) => {
-
     if (!req.session.userId) {
         return res.status(401).json({
             message: "Please login first."
@@ -249,9 +324,9 @@ router.put("/profile", (req, res) => {
         bio,
         skills,
         accountType
-    } = req.body;
+    } = req.body || {};
 
-    if (!fullName || !collegeName) {
+    if (!fullName?.trim() || !collegeName?.trim()) {
         return res.status(400).json({
             message: "Full name and college name are required."
         });
@@ -270,32 +345,33 @@ router.put("/profile", (req, res) => {
     db.query(
         query,
         [
-            fullName,
-            collegeName,
+            fullName.trim(),
+            collegeName.trim(),
             bio || null,
             skills || null,
             accountType || "public",
             req.session.userId
         ],
         (err) => {
-
             if (err) {
-                console.log(err);
+                console.error("Profile update error:", err.code);
 
                 return res.status(500).json({
                     message: "Could not update profile."
                 });
             }
 
-            res.status(200).json({
+            return res.status(200).json({
                 message: "Profile updated successfully!"
             });
-
         }
     );
-
 });
+
+// =====================================
 // Find Project Partners
+// =====================================
+
 router.get("/students", (req, res) => {
     const currentUserId = req.session?.userId;
 
@@ -307,14 +383,18 @@ router.get("/students", (req, res) => {
 
     db.query(query, (err, results) => {
         if (err) {
-            console.log(err);
+            console.error("Load students error:", err.code);
+
             return res.status(500).json({
                 message: "Could not load students."
             });
         }
 
         const students = results
-            .filter(student => Number(student.id) !== Number(currentUserId))
+            .filter(
+                student =>
+                    Number(student.id) !== Number(currentUserId)
+            )
             .map(student => ({
                 id: student.id,
                 username: student.username,
@@ -323,11 +403,16 @@ router.get("/students", (req, res) => {
                 skills: student.skills
             }));
 
-        res.json({ students });
+        return res.json({ students });
     });
 });
+
+// =====================================
+// Test Session
+// =====================================
+
 router.get("/test-session", (req, res) => {
-    res.json({
+    return res.json({
         sessionUserId: req.session.userId || null,
         sessionUsername: req.session.username || null
     });
