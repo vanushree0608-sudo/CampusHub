@@ -1,11 +1,34 @@
+// CampusHub - Explore Projects
+
 document.addEventListener("DOMContentLoaded", () => {
-    const projectsGrid = document.getElementById("exploreProjectsGrid");
-    const searchInput = document.getElementById("projectSearch");
-    const message = document.getElementById("exploreMessage");
+
+    const API_BASE =
+        "https://campushub-production-69eb.up.railway.app";
+
+    const projectsGrid =
+        document.getElementById("exploreProjectsGrid");
+
+    const searchInput =
+        document.getElementById("projectSearch");
+
+    const message =
+        document.getElementById("exploreMessage");
+
+    if (!projectsGrid || !searchInput || !message) {
+        console.error(
+            "Explore Projects page is missing a required HTML element."
+        );
+        return;
+    }
 
     let projects = [];
     let currentUserId = null;
+
     const requestedProjects = new Set();
+
+    // ===============================
+    // Escape HTML safely
+    // ===============================
 
     function escapeHTML(value) {
         return String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -21,10 +44,52 @@ document.addEventListener("DOMContentLoaded", () => {
         message.textContent = text;
     }
 
+    // ===============================
+    // Send API requests to Railway
+    // ===============================
+
+    async function apiRequest(path, options = {}) {
+
+        const response = await fetch(`${API_BASE}${path}`, {
+            ...options,
+
+            credentials: "include",
+
+            headers: {
+                ...(options.headers || {})
+            }
+        });
+
+        let data;
+
+        try {
+            data = await response.json();
+        } catch (error) {
+            throw new Error(
+                `Server returned an unreadable response (${response.status}).`
+            );
+        }
+
+        if (!response.ok) {
+            throw new Error(
+                data.message || `Request failed (${response.status}).`
+            );
+        }
+
+        return data;
+    }
+
+    // ===============================
+    // Render Projects
+    // ===============================
+
     function renderProjects() {
-        const search = searchInput.value.trim().toLowerCase();
+
+        const search =
+            searchInput.value.trim().toLowerCase();
 
         const filtered = projects.filter(project => {
+
             const searchableText = [
                 project.project_name,
                 project.description,
@@ -38,28 +103,50 @@ document.addEventListener("DOMContentLoaded", () => {
         projectsGrid.innerHTML = "";
 
         if (filtered.length === 0) {
+
             showMessage(
                 projects.length === 0
                     ? "No projects available yet."
                     : "No projects match your search."
             );
+
             return;
         }
 
         showMessage("");
 
         filtered.forEach(project => {
+
+            // Identify the owner by comparing account IDs.
             const isOwner =
                 currentUserId != null &&
+                project.user_id != null &&
                 Number(project.user_id) === Number(currentUserId);
 
-            const skills = String(project.skills_required || "")
+            const skills = String(
+                project.skills_required || ""
+            )
                 .split(",")
                 .map(skill => skill.trim())
                 .filter(Boolean);
 
             const card = document.createElement("article");
+
             card.className = "project-card";
+
+            const deadlineText = project.deadline
+                ? escapeHTML(
+                    new Date(project.deadline).toLocaleDateString(
+                        "en-IN",
+                        {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            timeZone: "Asia/Kolkata"
+                        }
+                    )
+                )
+                : "Not specified";
 
             card.innerHTML = `
                 <div class="project-card-top">
@@ -68,10 +155,16 @@ document.addEventListener("DOMContentLoaded", () => {
                     </span>
                 </div>
 
-                <h2>${escapeHTML(project.project_name || "Untitled Project")}</h2>
+                <h2>
+                    ${escapeHTML(
+                        project.project_name || "Untitled Project"
+                    )}
+                </h2>
 
                 <p class="project-description">
-                    ${escapeHTML(project.description || "No description provided.")}
+                    ${escapeHTML(
+                        project.description || "No description provided."
+                    )}
                 </p>
 
                 <p class="project-meta">
@@ -81,19 +174,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 <p class="project-meta">
                     <strong>Members needed:</strong>
-                    ${escapeHTML(project.members_needed ?? "Not specified")}
+                    ${escapeHTML(
+                        project.members_needed ?? "Not specified"
+                    )}
                 </p>
 
                 <p class="project-meta">
                     <strong>Deadline:</strong>
-                    ${project.deadline
-    ? escapeHTML(new Date(project.deadline).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        timeZone: "Asia/Kolkata"
-    }))
-    : "Not specified"}
+                    ${deadlineText}
                 </p>
 
                 <div class="project-skills">
@@ -106,82 +194,166 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 </div>
 
-                <button class="feature-button request-button" type="button">
-                    ${isOwner ? "Your Project" : "Request to Join"}
+                <button
+                    class="feature-button request-button"
+                    type="button">
+                    ${
+                        isOwner
+                            ? "Your Project"
+                            : "Request to Join"
+                    }
                 </button>
             `;
 
-            const button = card.querySelector(".request-button");
+            const button =
+                card.querySelector(".request-button");
 
             if (isOwner) {
-                button.disabled = true;
-            } else {
-                button.addEventListener("click", () => requestToJoin(project, button));
-            }
 
-            if (requestedProjects.has(String(project.id))) {
+                // Owners should not request to join their own project.
+                button.disabled = true;
+
+            } else if (
+                requestedProjects.has(String(project.id))
+            ) {
+
                 button.textContent = "Request Sent";
                 button.disabled = true;
+
+            } else {
+
+                button.addEventListener("click", () => {
+                    requestToJoin(project, button);
+                });
             }
 
             projectsGrid.appendChild(card);
         });
     }
 
+    // ===============================
+    // Request to Join a Project
+    // ===============================
+
     async function requestToJoin(project, button) {
+
         button.disabled = true;
         button.textContent = "Sending...";
 
         try {
-            const response = await fetch(
+
+            const data = await apiRequest(
                 `/api/projects/${encodeURIComponent(project.id)}/request`,
                 {
                     method: "POST",
-                    credentials: "include"
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
                 }
             );
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || "Could not send your request.");
-            }
-
             requestedProjects.add(String(project.id));
+
             button.textContent = "Request Sent";
-            showMessage(data.message || "Your join request was sent!");
+
+            showMessage(
+                data.message || "Your join request was sent!"
+            );
+
         } catch (error) {
+
+            console.error(
+                "Project join request error:",
+                error
+            );
+
             button.disabled = false;
             button.textContent = "Request to Join";
-            showMessage(error.message || "Something went wrong.");
+
+            showMessage(
+                error.message || "Something went wrong."
+            );
         }
     }
 
+    // ===============================
+    // Load Projects and Current User
+    // ===============================
+
     async function loadProjects() {
+
         showMessage("Loading projects...");
 
         try {
-            const response = await fetch("/api/projects/", {
-                credentials: "include"
-            });
 
-            if (!response.ok) {
-                throw new Error("Could not load projects. Check your server.");
+            // First, identify the currently logged-in user.
+            const meData = await apiRequest("/api/auth/me");
+
+            if (!meData.user) {
+
+                showMessage(
+                    "Please log in to explore projects."
+                );
+
+                return;
             }
 
-            const data = await response.json();
+            currentUserId = meData.user.id ?? null;
 
-            projects = data.projects || [];
-            currentUserId = data.currentUserId ?? null;
+            // Then load all available projects.
+            const data = await apiRequest("/api/projects/");
+
+            projects = Array.isArray(data.projects)
+                ? data.projects
+                : [];
+
+            // Use the projects response as a fallback if needed.
+            if (
+                currentUserId == null &&
+                data.currentUserId != null
+            ) {
+                currentUserId = data.currentUserId;
+            }
+
+            console.log(
+                "Explore projects loaded:",
+                projects
+            );
+
+            console.log(
+                "Explore logged-in user ID:",
+                currentUserId
+            );
 
             renderProjects();
+
         } catch (error) {
+
+            console.error(
+                "Explore projects loading error:",
+                error
+            );
+
             projectsGrid.innerHTML = "";
-            showMessage(error.message || "Unable to load projects.");
+
+            showMessage(
+                error.message ||
+                "Could not load projects. Check your server."
+            );
         }
     }
 
-    searchInput.addEventListener("input", renderProjects);
+    // ===============================
+    // Search Projects
+    // ===============================
 
+    searchInput.addEventListener(
+        "input",
+        renderProjects
+    );
+
+    // Start the page.
     loadProjects();
+
 });
