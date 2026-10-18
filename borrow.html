@@ -357,15 +357,76 @@
         </main>
     </div>
 
-    <script>
-        const browseTab = document.getElementById("browseTab");
-        const myItemsTab = document.getElementById("myItemsTab");
-        const browsePanel = document.getElementById("browsePanel");
-        const myItemsPanel = document.getElementById("myItemsPanel");
-        const incomingTab = document.getElementById("incomingTab");
-const incomingPanel = document.getElementById("incomingPanel");
+   <script>
+const API_BASE =
+    "https://campushub-production-69eb.up.railway.app";
 
-       
+// Send requests to Railway, including the login session cookie.
+async function borrowApi(path, options = {}) {
+    const response = await fetch(`${API_BASE}${path}`, {
+        ...options,
+        credentials: "include",
+        headers: {
+            ...(options.headers || {})
+        }
+    });
+
+    let result;
+
+    try {
+        result = await response.json();
+    } catch (error) {
+        throw new Error(
+            `Unexpected server response (${response.status}).`
+        );
+    }
+
+    if (!response.ok) {
+        throw new Error(
+            result.message || `Request failed (${response.status}).`
+        );
+    }
+
+    return result;
+}
+
+function escapeBorrowText(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[char]);
+}
+
+function formatBorrowDate(value) {
+    if (!value) return "Not set";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "Not set";
+    }
+
+    return date.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+    });
+}
+
+// ===============================
+// Tabs
+// ===============================
+
+const browseTab = document.getElementById("browseTab");
+const myItemsTab = document.getElementById("myItemsTab");
+const incomingTab = document.getElementById("incomingTab");
+
+const browsePanel = document.getElementById("browsePanel");
+const myItemsPanel = document.getElementById("myItemsPanel");
+const incomingPanel = document.getElementById("incomingPanel");
 
 function showTab(tab) {
     browsePanel.hidden = tab !== "browse";
@@ -376,62 +437,54 @@ function showTab(tab) {
     myItemsTab.classList.toggle("active", tab === "mine");
     incomingTab.classList.toggle("active", tab === "incoming");
 
-    browseTab.setAttribute("aria-selected", tab === "browse");
-    myItemsTab.setAttribute("aria-selected", tab === "mine");
-    incomingTab.setAttribute("aria-selected", tab === "incoming");
+    browseTab.setAttribute("aria-selected", String(tab === "browse"));
+    myItemsTab.setAttribute("aria-selected", String(tab === "mine"));
+    incomingTab.setAttribute("aria-selected", String(tab === "incoming"));
 
-    if (tab === "mine") {
-        loadMyBorrowings();
-    }
-
-    if (tab === "incoming") {
-        loadIncomingRequests();
-    }
+    if (tab === "mine") loadMyBorrowings();
+    if (tab === "incoming") loadIncomingRequests();
 }
 
 browseTab.addEventListener("click", () => showTab("browse"));
 myItemsTab.addEventListener("click", () => showTab("mine"));
 incomingTab.addEventListener("click", () => showTab("incoming"));
+
+// ===============================
+// Request To Borrow
+// ===============================
+
 async function requestBorrow(itemId) {
-    if (!confirm("Do you want to request this item?")) {
-        return;
-    }
+    if (!confirm("Do you want to request this item?")) return;
 
     try {
-        const response = await fetch(
-            `/api/borrow/items/${itemId}/request`,
+        const result = await borrowApi(
+            `/api/borrow/items/${encodeURIComponent(itemId)}/request`,
             {
-                method: "POST",
-                credentials: "same-origin"
+                method: "POST"
             }
         );
 
-        const result = await response.json();
-
-        if (!response.ok) {
-            alert(result.message || "Could not send request.");
-            return;
-        }
-
         alert(result.message || "Borrow request sent!");
     } catch (error) {
-        alert("Could not connect to the server.");
+        console.error("Borrow request failed:", error);
+        alert(error.message || "Could not connect to the server.");
     }
 }
 
+// ===============================
+// Load Available Items
+// ===============================
+
 async function loadBorrowItems() {
     const availableItems = document.getElementById("availableItems");
-    const searchValue = document.getElementById("itemSearch").value
-        .trim().toLowerCase();
+
+    const searchValue = document.getElementById("itemSearch")
+        .value.trim().toLowerCase();
 
     try {
-        const response = await fetch("/api/borrow/items");
-        const result = await response.json();
+        const result = await borrowApi("/api/borrow/items");
 
-        if (!response.ok) {
-            throw new Error("Could not load items");
-        }
-const currentUserId = result.currentUserId;
+        const currentUserId = result.currentUserId ?? null;
 
         const items = (result.items || []).filter(item =>
             `${item.item_name} ${item.description || ""} ${item.category || ""}`
@@ -448,45 +501,58 @@ const currentUserId = result.currentUserId;
             return;
         }
 
-        availableItems.innerHTML = items.map(item => `
-            <article class="item-card">
-                <div class="item-icon">📦</div>
-                <h3>${escapeBorrowText(item.item_name)}</h3>
-                <p>${escapeBorrowText(item.description || "No description provided.")}</p>
-                <p>Category: ${escapeBorrowText(item.category || "Other")}</p>
-<p>Listed by: ${escapeBorrowText(item.owner_name || "Student")}</p>
-${Number(item.user_id) === Number(currentUserId)
-    ? '<span class="status">Your item</span>'
-    : '<span class="status">Available to Borrow</span>'}
-${Number(item.user_id) !== Number(currentUserId) ? `
-    <button class="primary-button"
-        onclick="requestBorrow(${Number(item.id)})">
-        Request to Borrow
-    </button>
-` : ""}
-            </article>
-        `).join("");
+        availableItems.innerHTML = items.map(item => {
+            const isOwner =
+                currentUserId != null &&
+                Number(item.user_id) === Number(currentUserId);
+
+            return `
+                <article class="item-card">
+                    <div class="item-icon">📦</div>
+
+                    <h3>${escapeBorrowText(item.item_name)}</h3>
+
+                    <p>${escapeBorrowText(
+                        item.description || "No description provided."
+                    )}</p>
+
+                    <p>Category: ${escapeBorrowText(item.category || "Other")}</p>
+
+                    <p>Listed by: ${escapeBorrowText(item.owner_name || "Student")}</p>
+
+                    ${
+                        isOwner
+                            ? '<span class="status">Your item</span>'
+                            : `
+                                <span class="status">Available to Borrow</span>
+
+                                <button class="primary-button"
+                                    onclick="requestBorrow(${Number(item.id)})">
+                                    Request to Borrow
+                                </button>
+                              `
+                    }
+                </article>`;
+        }).join("");
+
     } catch (error) {
+        console.error("Loading borrow items failed:", error);
+
         availableItems.innerHTML = `
             <div class="empty-state" style="grid-column:1/-1;">
-                Could not load items. Please try again.
+                ${escapeBorrowText(
+                    error.message || "Could not load items. Please try again."
+                )}
             </div>`;
     }
 }
 
-function escapeBorrowText(value) {
-    return String(value).replace(/[&<>"']/g, char => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-    })[char]);
-}
+document.getElementById("itemSearch")
+    .addEventListener("input", loadBorrowItems);
 
-document.getElementById("itemSearch").addEventListener("input", loadBorrowItems);
-
-loadBorrowItems();
+// ===============================
+// List An Item
+// ===============================
 
 const showItemForm = document.getElementById("showItemForm");
 const itemForm = document.getElementById("itemForm");
@@ -504,8 +570,10 @@ cancelItemForm.addEventListener("click", () => {
     itemFormMessage.textContent = "";
 });
 
-itemForm.addEventListener("submit", async (event) => {
+itemForm.addEventListener("submit", async event => {
     event.preventDefault();
+
+    itemFormMessage.textContent = "Adding item...";
 
     const data = {
         item_name: document.getElementById("itemName").value.trim(),
@@ -514,80 +582,82 @@ itemForm.addEventListener("submit", async (event) => {
     };
 
     try {
-        const response = await fetch("/api/borrow/items", {
+        const result = await borrowApi("/api/borrow/items", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
-            credentials: "same-origin",
             body: JSON.stringify(data)
         });
 
-        const result = await response.json();
+        itemFormMessage.textContent =
+            result.message || "Item added successfully!";
 
-        if (!response.ok) {
-            itemFormMessage.textContent =
-                result.message || "Could not add item.";
-            return;
-        }
-
-        itemFormMessage.textContent = "Item added successfully!";
         itemForm.reset();
 
         await loadBorrowItems();
+
     } catch (error) {
+        console.error("Adding item failed:", error);
+
         itemFormMessage.textContent =
-            "Could not connect to the server.";
+            error.message || "Could not connect to the server.";
     }
 });
+
+// ===============================
+// My Borrowings
+// ===============================
 
 async function loadMyBorrowings() {
     const container = document.getElementById("myBorrowings");
 
-    container.innerHTML = "Loading your borrowings...";
+    container.className = "empty-state";
+    container.textContent = "Loading your borrowings...";
 
     try {
-        const response = await fetch("/api/borrow/my-borrowings", {
-            credentials: "same-origin"
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.message || "Could not load borrowings");
-        }
-
+        const result = await borrowApi("/api/borrow/my-borrowings");
         const borrowings = result.borrowings || [];
 
         if (borrowings.length === 0) {
-            container.className = "empty-state";
             container.textContent = "You haven't requested any items yet.";
             return;
         }
 
-        container.className = "items-grid";
+        container.className = "item-grid";
 
         container.innerHTML = borrowings.map(item => `
             <article class="item-card">
                 <h3>${escapeBorrowText(item.item_name)}</h3>
-                <p>Owner: ${escapeBorrowText(item.owner_name)}</p>
-                <p>Status: <strong>${escapeBorrowText(item.request_status)}</strong></p>
-                <p>Requested: ${item.requested_at
-                    ? escapeBorrowText(new Date(item.requested_at).toLocaleDateString("en-IN"))
-                    : "Not available"}</p>
-                <p>Due date: ${item.due_date
-                    ? escapeBorrowText(new Date(item.due_date).toLocaleDateString("en-IN", {
-                        timeZone: "UTC"
-                    }))
-                    : "Not set"}</p>
+
+                <p>Owner: ${escapeBorrowText(item.owner_name || "Student")}</p>
+
+                <p>Status:
+                    <strong>${escapeBorrowText(item.request_status)}</strong>
+                </p>
+
+                <p>Requested: ${escapeBorrowText(
+                    formatBorrowDate(item.requested_at)
+                )}</p>
+
+                <p>Due date: ${escapeBorrowText(
+                    formatBorrowDate(item.due_date)
+                )}</p>
             </article>
         `).join("");
 
     } catch (error) {
+        console.error("Loading borrowings failed:", error);
+
         container.className = "empty-state";
-        container.textContent = error.message || "Could not load your borrowings.";
+        container.textContent =
+            error.message || "Could not load your borrowings.";
     }
 }
+
+// ===============================
+// Incoming Borrow Requests
+// ===============================
 
 async function loadIncomingRequests() {
     const container = document.getElementById("incomingRequests");
@@ -595,16 +665,7 @@ async function loadIncomingRequests() {
     container.innerHTML = "Loading incoming requests...";
 
     try {
-        const response = await fetch("/api/borrow/owner-requests", {
-            credentials: "same-origin"
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.message || "Could not load requests");
-        }
-
+        const result = await borrowApi("/api/borrow/owner-requests");
         const requests = result.requests || [];
 
         if (requests.length === 0) {
@@ -619,31 +680,51 @@ async function loadIncomingRequests() {
         container.innerHTML = requests.map(request => `
             <article class="item-card">
                 <div class="item-icon">📩</div>
-                <h3>${escapeBorrowText(request.item_name)}</h3>
-                <p>Requested by: ${escapeBorrowText(request.borrower_name)}</p>
-                <p>Status: <strong>${escapeBorrowText(request.request_status)}</strong></p>
 
-                ${request.request_status === "pending" ? `
-                    <button class="primary-button"
-                        onclick="updateBorrowRequest(${Number(request.request_id)}, 'approved')">
-                        Approve
-                    </button>
-                    <button class="tab"
-                        style="width:100%; margin-top:8px;"
-                        onclick="updateBorrowRequest(${Number(request.request_id)}, 'rejected')">
-                        Reject
-                    </button>
-                ` : ""}
+                <h3>${escapeBorrowText(request.item_name)}</h3>
+
+                <p>Requested by:
+                    ${escapeBorrowText(request.borrower_name || "Student")}
+                </p>
+
+                <p>Status:
+                    <strong>${escapeBorrowText(request.request_status)}</strong>
+                </p>
+
+                ${
+                    request.request_status === "pending"
+                        ? `
+                            <button class="primary-button"
+                                onclick="updateBorrowRequest(${Number(request.request_id)}, 'approved')">
+                                Approve
+                            </button>
+
+                            <button class="tab"
+                                style="width:100%; margin-top:8px;"
+                                onclick="updateBorrowRequest(${Number(request.request_id)}, 'rejected')">
+                                Reject
+                            </button>
+                          `
+                        : ""
+                }
             </article>
         `).join("");
 
     } catch (error) {
+        console.error("Loading incoming requests failed:", error);
+
         container.innerHTML = `
             <div class="empty-state" style="grid-column:1/-1;">
-                ${escapeBorrowText(error.message || "Could not load requests.")}
+                ${escapeBorrowText(
+                    error.message || "Could not load incoming requests."
+                )}
             </div>`;
     }
 }
+
+// ===============================
+// Approve Or Reject Request
+// ===============================
 
 async function updateBorrowRequest(requestId, status) {
     const action = status === "approved" ? "approve" : "reject";
@@ -653,34 +734,30 @@ async function updateBorrowRequest(requestId, status) {
     }
 
     try {
-        const response = await fetch(
-            `/api/borrow/requests/${requestId}/status`,
+        const result = await borrowApi(
+            `/api/borrow/requests/${encodeURIComponent(requestId)}/status`,
             {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json"
                 },
-                credentials: "same-origin",
                 body: JSON.stringify({ status })
             }
         );
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            alert(result.message || "Could not update the request.");
-            return;
-        }
 
         alert(result.message || "Request updated successfully!");
 
         await loadIncomingRequests();
 
     } catch (error) {
-        alert("Could not connect to the server.");
+        console.error("Updating borrow request failed:", error);
+
+        alert(error.message || "Could not connect to the server.");
     }
 }
 
-    </script>
+// Start loading items.
+loadBorrowItems();
+</script>
 </body>
 </html>
