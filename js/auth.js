@@ -230,13 +230,13 @@ if (loginForm) {
 
         .then(data => {
 
-            alert(data.message);
+           await showCampusHubAlert(data.message);
 
-            if (data.message === "Login successful!") {
-                window.location.href = "dashboard.html";
-            }
+if (data.message === "Login successful!") {
+    window.location.href = "dashboard.html";
+}
 
-        })
+})
 
         .catch(error => {
 
