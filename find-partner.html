@@ -131,97 +131,143 @@
     </main>
 
     <script>
-        const results = document.getElementById("partnerResults");
-        const search = document.getElementById("partnerSearch");
-        const skillFilter = document.getElementById("skillFilter");
+document.addEventListener("DOMContentLoaded", () => {
+    const API_BASE =
+        "https://campushub-production-69eb.up.railway.app";
 
-        let students = [];
+    const results = document.getElementById("partnerResults");
+    const search = document.getElementById("partnerSearch");
+    const skillFilter = document.getElementById("skillFilter");
 
-        function safeText(value) {
-            return String(value ?? "").replace(/[&<>"']/g, char => ({
-                "&": "&amp;",
-                "<": "&lt;",
-                ">": "&gt;",
-                '"': "&quot;",
-                "'": "&#39;"
-            })[char]);
+    let students = [];
+
+    function safeText(value) {
+        return String(value ?? "").replace(/[&<>"']/g, char => ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;"
+        })[char]);
+    }
+
+    function getSkills(student) {
+        if (Array.isArray(student.skills)) {
+            return student.skills;
         }
 
-        function renderStudents() {
-            const term = search.value.trim().toLowerCase();
-            const skill = skillFilter.value.toLowerCase();
+        return String(student.skills || "")
+            .split(",")
+            .map(skill => skill.trim())
+            .filter(Boolean);
+    }
 
-            const filtered = students.filter(student => {
-                const skills = Array.isArray(student.skills)
-                    ? student.skills
-                    : String(student.skills || "").split(",");
+    function renderStudents() {
+        const term = search.value.trim().toLowerCase();
+        const selectedSkill = skillFilter.value.toLowerCase();
 
-                const searchable = [
-                    student.username,
-                    student.bio,
-                    student.college,
-                    ...skills
-                ].join(" ").toLowerCase();
+        const filtered = students.filter(student => {
+            const skills = getSkills(student);
 
-                return searchable.includes(term) &&
-                    (!skill || skills.some(s => String(s).trim().toLowerCase().includes(skill)));
-            });
+            const searchable = [
+                student.username,
+                student.bio,
+                student.college,
+                ...skills
+            ].join(" ").toLowerCase();
 
-            if (!filtered.length) {
-                results.innerHTML = `
-                    <div class="empty-state">
-                        <h3>No matching students found</h3>
-                        <p>Try another skill or search term.</p>
-                    </div>`;
-                return;
-            }
+            return searchable.includes(term) &&
+                (!selectedSkill ||
+                    skills.some(skill =>
+                        String(skill).trim().toLowerCase()
+                            .includes(selectedSkill)
+                    ));
+        });
 
-            results.innerHTML = filtered.map(student => {
-                const skills = Array.isArray(student.skills)
-                    ? student.skills
-                    : String(student.skills || "").split(",").filter(Boolean);
-
-                return `
-                    <article class="partner-card">
-                        <div class="avatar">👤</div>
-                        <h2>${safeText(student.username || "Student")}</h2>
-                        <p>${safeText(student.bio || "Ready to learn and collaborate.")}</p>
-                        <p><strong>College:</strong> ${safeText(student.college || "Not specified")}</p>
-                        <p><strong>Skills</strong></p>
-                        <div class="skills">
-                            ${skills.length
-                                ? skills.map(s => `<span class="skill">${safeText(String(s).trim())}</span>`).join("")
-                                : '<span class="skill">Skills not added</span>'}
-                        </div>
-                    </article>`;
-            }).join("");
+        if (filtered.length === 0) {
+            results.innerHTML = `
+                <div class="empty-state">
+                    <h3>No matching students found</h3>
+                    <p>Try another skill or search term.</p>
+                </div>`;
+            return;
         }
 
-        async function loadStudents() {
-            try {
-                const response = await fetch("/api/auth/students", {
-                    credentials: "same-origin"
-                });
+        results.innerHTML = filtered.map(student => {
+            const skills = getSkills(student);
 
-                if (!response.ok) {
-                    throw new Error("Student list unavailable");
+            return `
+                <article class="partner-card">
+                    <div class="avatar">👤</div>
+
+                    <h2>${safeText(student.username || "Student")}</h2>
+
+                    <p>${safeText(
+                        student.bio || "Ready to learn and collaborate."
+                    )}</p>
+
+                    <p>
+                        <strong>College:</strong>
+                        ${safeText(student.college || "Not specified")}
+                    </p>
+
+                    <p><strong>Skills</strong></p>
+
+                    <div class="skills">
+                        ${
+                            skills.length
+                                ? skills.map(skill =>
+                                    `<span class="skill">${safeText(skill)}</span>`
+                                  ).join("")
+                                : '<span class="skill">Skills not added</span>'
+                        }
+                    </div>
+                </article>`;
+        }).join("");
+    }
+
+    async function loadStudents() {
+        results.innerHTML = `
+            <div class="empty-state">Loading students...</div>`;
+
+        try {
+            const response = await fetch(
+                `${API_BASE}/api/auth/students`,
+                {
+                    credentials: "include"
                 }
+            );
 
-                const data = await response.json();
-                students = Array.isArray(data) ? data : (data.students || []);
-                renderStudents();
-            } catch (error) {
-                results.innerHTML = `
-                    <div class="empty-state">
-                        <h3>Couldn't load students yet</h3>
-                        <p>The student-list API needs to be connected to this page.</p>
-                    </div>`;
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message || "Student list unavailable."
+                );
             }
-        }
 
-        search.addEventListener("input", renderStudents);
-        skillFilter.addEventListener("change", renderStudents);
-        loadStudents();
-    </script>
+            students = Array.isArray(data.students)
+                ? data.students
+                : [];
+
+            renderStudents();
+
+        } catch (error) {
+            console.error("Loading students failed:", error);
+
+            results.innerHTML = `
+                <div class="empty-state">
+                    <h3>Couldn't load students yet</h3>
+                    <p>${safeText(error.message)}</p>
+                </div>`;
+        }
+    }
+
+    search.addEventListener("input", renderStudents);
+    skillFilter.addEventListener("change", renderStudents);
+
+    loadStudents();
+});
+</script>
 </body>
 </html>
