@@ -1,85 +1,155 @@
 // CampusHub Project Requests
 
+const API_BASE =
+    "https://campushub-production-69eb.up.railway.app";
+
 console.log("requests.js loaded");
 
-// Load project requests
-fetch("/api/projects/requests", {
-    credentials: "include"
-})
-.then(response => response.json())
-.then(data => {
+// ===============================
+// Load Project Requests
+// ===============================
 
-    console.log("Requests received:", data);
-
-    const requestsContainer =
+async function loadProjectRequests() {
+    const container =
         document.querySelector("#requestsContainer");
 
-    if (!requestsContainer) return;
+    if (!container) return;
 
-    requestsContainer.innerHTML = "";
+    container.textContent = "Loading project requests...";
 
-    if (!data.requests || data.requests.length === 0) {
+    try {
+        const response = await fetch(
+            `${API_BASE}/api/projects/requests`,
+            {
+                credentials: "include"
+            }
+        );
 
-        requestsContainer.innerHTML =
-            "<p>No project requests yet.</p>";
+        const data = await response.json();
 
+        if (!response.ok) {
+            throw new Error(
+                data.message || "Unable to load requests."
+            );
+        }
+
+        console.log("Requests received:", data);
+
+        container.innerHTML = "";
+
+        if (
+            !data.requests ||
+            data.requests.length === 0
+        ) {
+            container.innerHTML =
+                "<p>No project requests yet.</p>";
+            return;
+        }
+
+        data.requests.forEach(request => {
+            const card = document.createElement("div");
+            card.className = "feature-card";
+
+            const heading = document.createElement("h2");
+            heading.textContent =
+                `🚀 ${request.project_name || "Project"}`;
+
+            const description = document.createElement("p");
+            description.textContent =
+                `${request.full_name || "Student"} ` +
+                `(@${request.username || "unknown"}) ` +
+                "wants to join your project.";
+
+            const status = document.createElement("p");
+            status.textContent = `Status: ${request.status}`;
+
+            card.appendChild(heading);
+            card.appendChild(description);
+            card.appendChild(status);
+
+            if (request.status === "Pending") {
+                const acceptButton =
+                    document.createElement("button");
+
+                acceptButton.className = "accept-btn";
+                acceptButton.dataset.id = request.id;
+                acceptButton.textContent = "Accept";
+
+                const rejectButton =
+                    document.createElement("button");
+
+                rejectButton.className = "reject-btn";
+                rejectButton.dataset.id = request.id;
+                rejectButton.textContent = "Reject";
+
+                card.appendChild(acceptButton);
+                card.appendChild(rejectButton);
+            }
+
+            container.appendChild(card);
+        });
+
+    } catch (error) {
+        console.error("Error loading requests:", error);
+
+        container.textContent =
+            error.message || "Unable to load requests.";
+    }
+}
+
+// ===============================
+// Accept Or Reject Requests
+// ===============================
+
+document.addEventListener("click", async function (event) {
+    const button = event.target.closest(
+        ".accept-btn, .reject-btn"
+    );
+
+    if (!button) return;
+
+    const requestId = button.dataset.id;
+
+    const isAccept = button.classList.contains("accept-btn");
+    const action = isAccept ? "accept" : "reject";
+
+    if (!confirm(`Are you sure you want to ${action} this request?`)) {
         return;
     }
 
-    data.requests.forEach(request => {
+    button.disabled = true;
+    button.textContent = "Processing...";
 
-        const requestCard =
-            document.createElement("div");
-
-        requestCard.className = "feature-card";
-
-        requestCard.innerHTML = `
-            <h2>🚀 ${request.project_name}</h2>
-
-            <p>
-                <strong>${request.full_name}</strong>
-                (@${request.username})
-                wants to join your project.
-            </p>
-
-            <p>
-                <strong>Status:</strong>
-                ${request.status}
-            </p>
-
-            ${
-                request.status === "Pending"
-                ? `
-                    <button
-                        class="accept-btn"
-                        data-id="${request.id}">
-                        Accept
-                    </button>
-
-                    <button
-                        class="reject-btn"
-                        data-id="${request.id}">
-                        Reject
-                    </button>
-                `
-                : ""
+    try {
+        const response = await fetch(
+            `${API_BASE}/api/projects/requests/${encodeURIComponent(requestId)}/${action}`,
+            {
+                method: "POST",
+                credentials: "include"
             }
-        `;
+        );
 
-        requestsContainer.appendChild(requestCard);
-    });
+        const data = await response.json();
 
-})
-.catch(error => {
+        if (!response.ok) {
+            throw new Error(
+                data.message || `Unable to ${action} request.`
+            );
+        }
 
-    console.error("Error loading requests:", error);
+        alert(data.message || "Request updated successfully!");
 
-    const requestsContainer =
-        document.querySelector("#requestsContainer");
+        await loadProjectRequests();
 
-    if (requestsContainer) {
+    } catch (error) {
+        console.error(`${action} request error:`, error);
 
-        requestsContainer.innerHTML =
-            "<p>Unable to load requests.</p>";
+        alert(error.message || "Unable to connect to the server.");
+
+        button.disabled = false;
+        button.textContent = isAccept ? "Accept" : "Reject";
     }
 });
+
+// Start loading.
+loadProjectRequests();
